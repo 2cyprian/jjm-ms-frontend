@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Staff Dashboard - Print &amp; POS</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f4b43e",
+                        "primary-hover": "#d99d2e",
+                        "sidebar-bg": "#181611",
+                        "sidebar-active": "#27231b",
+                        "charcoal": "#1f2937",
+                        "background-light": "#f3f4f6", // Light gray
+                        "background-dark": "#181611",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "2xl": "1.5rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar for cleaner look */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white h-screen flex overflow-hidden selection:bg-primary selection:text-sidebar-bg">
+<!-- Sidebar -->
+<aside class="w-64 bg-sidebar-bg flex-shrink-0 flex flex-col h-full border-r border-gray-800 z-20">
+<!-- Brand -->
+<div class="p-6 flex items-center gap-3">
+<div class="bg-primary h-10 w-10 rounded-lg flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-sidebar-bg font-bold">print_connect</span>
+</div>
+<div>
+<h1 class="text-white font-bold text-lg leading-tight">Print Station</h1>
+<p class="text-gray-400 text-xs">Staff Portal</p>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex-1 flex flex-col gap-1 px-3 py-4">
+<!-- Active Item -->
+<a class="group relative flex items-center gap-3 px-3 py-3 rounded-lg bg-sidebar-active text-white transition-all" href="#">
+<div class="absolute left-0 top-2 bottom-2 w-1 bg-primary rounded-r-full"></div>
+<span class="material-symbols-outlined text-primary group-hover:text-primary transition-colors">dashboard</span>
+<span class="font-medium text-sm">Dashboard</span>
+</a>
+<!-- Inactive Items -->
+<a class="group flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">print</span>
+<span class="font-medium text-sm">Print Jobs</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">inventory_2</span>
+<span class="font-medium text-sm">Inventory</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">bar_chart</span>
+<span class="font-medium text-sm">Reports</span>
+</a>
+<div class="mt-auto">
+<a class="group flex items-center gap-3 px-3 py-3 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-all" href="#">
+<span class="material-symbols-outlined group-hover:text-primary transition-colors">settings</span>
+<span class="font-medium text-sm">Settings</span>
+</a>
+</div>
+</nav>
+<!-- User Profile -->
+<div class="p-4 border-t border-gray-800">
+<div class="flex items-center gap-3">
+<div class="h-10 w-10 rounded-full bg-cover bg-center border border-gray-700" data-alt="User avatar" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDtbvLjDZvSqU82a9dKPwhwOJEZxDUi6slecb7aNDxtOsAcAth3MzJP3eGCYprpJjJe5fM1R9XbAEE3eIrLba369CP8XBygBfVe6itk-e2xWteqU4ZLMHK0BeRsAcN9xjYGHwbIyYgDcT6buGUrtWQVU0qrsjltcu0gPHeVslX8ytE8X91ZhJDRIPxpQwlubpHp-JIHye-4LZ-CozMQLcI7JMIns3DAs4zLGUG8SU9Pxhp4eAzmJERs9GTxEoZO-sr50-a85M4VV7NY');"></div>
+<div class="flex flex-col">
+<span class="text-white text-sm font-medium">Alex Johnson</span>
+<span class="text-gray-500 text-xs">Shift Lead</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden">
+<!-- Top Bar (Optional for context, kept minimal) -->
+<header class="h-16 bg-white dark:bg-[#1f1b13] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-8 shrink-0">
+<h2 class="text-xl font-bold text-gray-800 dark:text-white">Station 04 Overview</h2>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    System Online
+                </span>
+<button class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 dark:text-gray-400">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<!-- Split View -->
+<div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 overflow-hidden">
+<!-- LEFT PANEL: Print Queue -->
+<div class="lg:col-span-7 flex flex-col min-h-0">
+<div class="flex items-center justify-between mb-4 px-1">
+<h3 class="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        Print Queue 
+                        <span class="bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-0.5 rounded-full">4</span>
+</h3>
+<div class="flex gap-2">
+<button class="text-sm font-medium text-primary hover:text-primary-hover flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">refresh</span> Refresh
+                        </button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto pr-2 flex flex-col gap-4 pb-20 scrollbar-hide">
+<!-- Card 1: Pending -->
+<div class="bg-white dark:bg-[#27231b] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row gap-4">
+<div class="w-full sm:w-32 aspect-video sm:aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg bg-cover bg-center shrink-0 flex items-center justify-center text-gray-400" data-alt="PDF Document Preview thumbnail" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCoethXTW0pYkIt9RIJM4j09YyDBgSjZ9EygKnuu1ONq5kAjolj-d7M_Oz0BMR4Lv-TK11ekAt3_daQYiiB1uFp5x95GsgnOMYcwgGyi8sm2a0liG9HwD6WpzcbvVSkKMBdQ8NIfSViFFXaC-mJ4-SlVMypmeXaDHQqlDMGLNY9xh8xxH2YOUUr0XDZCvGTmMT295dGKiflEiBQ0YMcXXOOYo3IArO9QWlb6wUuz29DWoa0e9REEHK4VVV4ciwc8JHh-PVPcZAaNm1e');">
+<!-- Fallback icon if image fails or for styling -->
+<span class="material-symbols-outlined text-4xl opacity-50">picture_as_pdf</span>
+</div>
+<div class="flex-1 flex flex-col justify-between gap-3">
+<div>
+<div class="flex items-start justify-between">
+<h4 class="font-bold text-gray-900 dark:text-white text-lg">Thesis_Final_v2.pdf</h4>
+<span class="px-2 py-1 rounded text-xs font-bold text-primary border border-primary bg-primary/5">Pending</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">person</span> Submitted by: J. Doe
+                                </p>
+<p class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">description</span> 45 Pages • Color
+                                </p>
+</div>
+<div class="flex justify-end gap-3 mt-2">
+<button class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">Details</button>
+<button class="px-4 py-2 rounded-lg text-sm font-medium bg-sidebar-bg text-white hover:bg-gray-800 flex items-center gap-2 shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                                    Print Job
+                                </button>
+</div>
+</div>
+</div>
+<!-- Card 2: Processing -->
+<div class="bg-white dark:bg-[#27231b] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row gap-4 opacity-75">
+<div class="w-full sm:w-32 aspect-video sm:aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg bg-cover bg-center shrink-0 flex items-center justify-center text-gray-400" data-alt="Image file preview thumbnail" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDFe4dQkx9Xo5MZ6ZhzaL5v4lN_Ft5npCG_eodeZPfB2p4O-sYHgsckgMf29JLmF0Z8yGsVrlF6BEvUCmVuKRaN8aKysVSQFS1-rbQbya84a0nkLMjV31KQl_kC7MkvEfcxJMuVzalSdRhZUeVrHV5tix9A11x1qbpw-PI_b16mhqtYqYN1Ar_Lqd_S2cHBK7-ED3izkKwSJ6wltp0a-n0c0GWHPLYWD9oA7ihitDv2s0fLbgswJeCulQNEKi7QPBhBolQpN7Sm8JKl');">
+<span class="material-symbols-outlined text-4xl opacity-50">image</span>
+</div>
+<div class="flex-1 flex flex-col justify-between gap-3">
+<div>
+<div class="flex items-start justify-between">
+<h4 class="font-bold text-gray-900 dark:text-white text-lg">Event_Flyer_A4.jpg</h4>
+<span class="px-2 py-1 rounded text-xs font-bold text-blue-500 border border-blue-500 bg-blue-50 dark:bg-blue-500/10">Processing</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">person</span> Submitted by: S. Smith
+                                </p>
+<p class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">content_copy</span> 100 Copies • Glossy
+                                </p>
+</div>
+<div class="flex justify-end gap-3 mt-2">
+<button class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 cursor-not-allowed">Details</button>
+<button class="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed flex items-center gap-2" disabled="">
+<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+                                    Printing...
+                                </button>
+</div>
+</div>
+</div>
+<!-- Card 3: Pending -->
+<div class="bg-white dark:bg-[#27231b] p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row gap-4">
+<div class="w-full sm:w-32 aspect-video sm:aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg bg-cover bg-center shrink-0 flex items-center justify-center text-gray-400" data-alt="Word Document preview thumbnail" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDVOoilpT7yXO6k0gEZTJD4Ym41npThc7YqcMJnZU_3W2qhTZZPODaW6k7hOKwk9CXSIfCD8wrHhIqx1mlUdz6112czmfY-lX-xY1PVCcEdNLFfxoYcpCSm4pKT4ndVkb1Ee__65fFQnGq6p527P5-uvl6SBnyJ4BwLERlziazh7gyuVqXTKBTZxQc6_VzpiSSqYC8IBOKYLAbEvQEFyL6p50S-Hgn4nXO8FKH46Dy_K7HFPzAKsKY8NBMiWUGSGm2uJSyzoUJATi-3');">
+<span class="material-symbols-outlined text-4xl opacity-50">description</span>
+</div>
+<div class="flex-1 flex flex-col justify-between gap-3">
+<div>
+<div class="flex items-start justify-between">
+<h4 class="font-bold text-gray-900 dark:text-white text-lg">Menu_Draft_v4.docx</h4>
+<span class="px-2 py-1 rounded text-xs font-bold text-primary border border-primary bg-primary/5">Pending</span>
+</div>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">person</span> Submitted by: Cafe Mgr
+                                </p>
+<p class="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+<span class="material-symbols-outlined text-[16px]">description</span> 2 Pages • B&amp;W
+                                </p>
+</div>
+<div class="flex justify-end gap-3 mt-2">
+<button class="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">Details</button>
+<button class="px-4 py-2 rounded-lg text-sm font-medium bg-sidebar-bg text-white hover:bg-gray-800 flex items-center gap-2 shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[18px]">print</span>
+                                    Print Job
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- RIGHT PANEL: POS / Register -->
+<div class="lg:col-span-5 bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-gray-200 dark:border-gray-800 flex flex-col overflow-hidden h-full">
+<!-- Header / Input -->
+<div class="p-5 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-white/5">
+<h3 class="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-3">New Transaction</h3>
+<div class="relative w-full">
+<input autofocus="" class="w-full h-14 pl-12 pr-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#2c2c2c] text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-lg font-medium shadow-sm transition-all" placeholder="Scan barcode or search item..." type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-2xl">qr_code_scanner</span>
+<div class="absolute right-3 top-1/2 -translate-y-1/2">
+<span class="bg-gray-100 dark:bg-gray-700 text-gray-400 text-xs px-2 py-1 rounded font-mono">ENTER</span>
+</div>
+</div>
+</div>
+<!-- Cart List -->
+<div class="flex-1 overflow-y-auto p-2 scrollbar-hide">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-white dark:bg-[#1e1e1e] z-10">
+<tr>
+<th class="p-3 text-xs font-medium text-gray-400 uppercase tracking-wider w-1/2">Item</th>
+<th class="p-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-center">Qty</th>
+<th class="p-3 text-xs font-medium text-gray-400 uppercase tracking-wider text-right">Price</th>
+<th class="p-3 text-xs font-medium text-gray-400 uppercase tracking-wider w-8"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+<!-- Item 1 -->
+<tr class="group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-3">
+<div class="flex flex-col">
+<span class="font-medium text-gray-900 dark:text-white">A4 Paper Ream (500)</span>
+<span class="text-xs text-gray-500">SKU: 8839201</span>
+</div>
+</td>
+<td class="p-3">
+<div class="flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg py-1 px-2 w-fit mx-auto">
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">-</button>
+<span class="font-semibold text-gray-900 dark:text-white text-sm w-4 text-center">2</span>
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">+</button>
+</div>
+</td>
+<td class="p-3 text-right font-medium text-gray-900 dark:text-white">$12.00</td>
+<td class="p-3 text-right">
+<button class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Item 2 -->
+<tr class="group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-3">
+<div class="flex flex-col">
+<span class="font-medium text-gray-900 dark:text-white">HP Black Ink Cartridge</span>
+<span class="text-xs text-gray-500">SKU: 4421109</span>
+</div>
+</td>
+<td class="p-3">
+<div class="flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg py-1 px-2 w-fit mx-auto">
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">-</button>
+<span class="font-semibold text-gray-900 dark:text-white text-sm w-4 text-center">1</span>
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">+</button>
+</div>
+</td>
+<td class="p-3 text-right font-medium text-gray-900 dark:text-white">$45.00</td>
+<td class="p-3 text-right">
+<button class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Item 3: Service -->
+<tr class="group hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+<td class="p-3">
+<div class="flex flex-col">
+<span class="font-medium text-gray-900 dark:text-white">Binding Service (Coil)</span>
+<span class="text-xs text-primary font-medium">Service Charge</span>
+</div>
+</td>
+<td class="p-3">
+<div class="flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg py-1 px-2 w-fit mx-auto">
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">-</button>
+<span class="font-semibold text-gray-900 dark:text-white text-sm w-4 text-center">1</span>
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700 rounded w-5 h-5 flex items-center justify-center transition-colors">+</button>
+</div>
+</td>
+<td class="p-3 text-right font-medium text-gray-900 dark:text-white">$5.00</td>
+<td class="p-3 text-right">
+<button class="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Footer / Totals -->
+<div class="bg-gray-50 dark:bg-[#252525] p-5 border-t border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+<span>Subtotal</span>
+<span>$74.00</span>
+</div>
+<div class="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+<span>Tax (8%)</span>
+<span>$5.92</span>
+</div>
+<div class="flex justify-between items-end mt-2">
+<span class="text-base font-bold text-gray-900 dark:text-white">Total Due</span>
+<span class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">$79.92</span>
+</div>
+</div>
+<button class="w-full bg-primary hover:bg-primary-hover active:scale-[0.99] transition-all py-4 rounded-xl shadow-lg shadow-amber-500/20 flex items-center justify-between px-6 group">
+<span class="text-sidebar-bg font-bold text-xl uppercase tracking-wide">Checkout</span>
+<div class="bg-black/10 rounded-lg px-3 py-1">
+<span class="text-sidebar-bg font-bold text-lg group-hover:translate-x-1 transition-transform inline-block">→</span>
+</div>
+</button>
+<div class="flex gap-2">
+<button class="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">Hold</button>
+<button class="flex-1 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">Discount</button>
+<button class="flex-1 py-2 rounded-lg border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors">Clear</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

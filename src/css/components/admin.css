@@ -1,0 +1,103 @@
+/* src/pages/AdminSettings.css */
+
+.admin-container {
+  padding: 30px;
+  max-width: 1000px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.admin-header {
+  margin-bottom: 30px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 10px;
+}
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #64748b;
+  transition: 0.2s;
+}
+
+.tab-btn.active {
+  background: var(--primary); /* Blue */
+  color: white;
+}
+
+/* CARDS & FORMS */
+.config-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.form-helper {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* BUTTONS */
+.btn-save {
+  background-color: var(--primary); /* Green */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-save:hover { background-color: #059669; }
+
+/* TABLE FOR DATA */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.data-table th, .data-table td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table th {
+  background-color: #f8fafc;
+  color: #64748b;
+}
