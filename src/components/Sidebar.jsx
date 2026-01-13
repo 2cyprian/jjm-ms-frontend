@@ -7,6 +7,7 @@ const Sidebar = () => {
     { id: 'staff', label: '🖨️ Print Jobs', path: '/staff' },
     { id: 'inventory', label: '📦 Inventory', path: '/inventory' },
     { id: 'branches', label: '🏢 Branches & Staff', path: '/branches' },
+    { id: 'land', label: '🏞️ Land Management', path: '/land' },
     { id: 'admin', label: '⚙️ Settings', path: '/admin' },
     { id: 'customer', label: '📤 Customer Upload', path: '/customer' }
   ];

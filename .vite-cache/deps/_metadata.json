@@ -1,67 +1,67 @@
 {
-  "hash": "da0339d4",
+  "hash": "52ca1a3f",
   "configHash": "fc747975",
-  "lockfileHash": "ee1e570e",
-  "browserHash": "0e70c055",
+  "lockfileHash": "026463f1",
+  "browserHash": "a7870f90",
   "optimized": {
     "@tanstack/react-query": {
       "src": "../../node_modules/@tanstack/react-query/build/modern/index.js",
       "file": "@tanstack_react-query.js",
-      "fileHash": "61325e3b",
+      "fileHash": "0e8b466f",
       "needsInterop": false
     },
     "axios": {
       "src": "../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "e8ca8658",
+      "fileHash": "b903584c",
       "needsInterop": false
     },
     "lucide-react": {
       "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
       "file": "lucide-react.js",
-      "fileHash": "26a589c7",
+      "fileHash": "8b07ab9f",
       "needsInterop": false
     },
     "react-dom": {
       "src": "../../node_modules/react-dom/index.js",
       "file": "react-dom.js",
-      "fileHash": "02f13067",
+      "fileHash": "f1bdc61f",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "9c8454f5",
+      "fileHash": "df797784",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.mjs",
       "file": "react-router-dom.js",
-      "fileHash": "77bce714",
+      "fileHash": "fd50c847",
       "needsInterop": false
     },
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "5256d996",
+      "fileHash": "73483c7b",
       "needsInterop": true
     },
     "react/jsx-dev-runtime": {
       "src": "../../node_modules/react/jsx-dev-runtime.js",
       "file": "react_jsx-dev-runtime.js",
-      "fileHash": "24af11d7",
+      "fileHash": "926e0a6a",
       "needsInterop": true
     },
     "react/jsx-runtime": {
       "src": "../../node_modules/react/jsx-runtime.js",
       "file": "react_jsx-runtime.js",
-      "fileHash": "58bde14b",
+      "fileHash": "b6ca019b",
       "needsInterop": true
     },
     "xlsx": {
       "src": "../../node_modules/xlsx/xlsx.mjs",
       "file": "xlsx.js",
-      "fileHash": "f3b37cf5",
+      "fileHash": "46faa041",
       "needsInterop": false
     }
   },
@@ -70,16 +70,16 @@
       "file": "chunk-DUEDWNxO.js",
       "isDynamicEntry": false
     },
-    "jsx-runtime-CjotVI8F": {
-      "file": "jsx-runtime-CjotVI8F.js",
+    "jsx-runtime-B60Wby22": {
+      "file": "jsx-runtime-B60Wby22.js",
       "isDynamicEntry": false
     },
     "react-BJLTNtyk": {
       "file": "react-BJLTNtyk.js",
       "isDynamicEntry": false
     },
-    "react-dom-D8B4M6vu": {
-      "file": "react-dom-D8B4M6vu.js",
+    "react-dom-BOCQak0u": {
+      "file": "react-dom-BOCQak0u.js",
       "isDynamicEntry": false
     }
   }

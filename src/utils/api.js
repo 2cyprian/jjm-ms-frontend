@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://192.168.100.11:8000/api/v1';
+const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -13,28 +13,47 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    const branchId = localStorage.getItem('branch_id');
+
     if (token) {
-      const normalized = token.startsWith('Bearer ')
+      // Always send Bearer token as per backend expectation
+      config.headers.Authorization = token.startsWith('Bearer ')
         ? token
-        : (token.includes('.') ? `Bearer ${token}` : `Token ${token}`);
-      config.headers.Authorization = normalized;
+        : `Bearer ${token}`;
     }
+
+    // Optional: send branch context header if present (backend may ignore if using JWT)
+    if (branchId) {
+      config.headers['X-Branch-ID'] = branchId;
+    }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // Do not auto-redirect; let pages handle 401 gracefully
-    if (error.response?.status === 401) {
-      console.warn('Unauthorized request. Verify session or token.');
+    const status = error.response?.status;
+
+    if (status === 401) {
+      console.warn('Unauthorized (401). Clearing auth and redirecting to login.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('branch_id');
+      localStorage.removeItem('role');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    } else if (status === 403) {
+      console.warn('Forbidden (403). Redirecting to /forbidden.');
+      if (window.location.pathname !== '/forbidden') {
+        window.location.href = '/forbidden';
+      }
     }
+
     return Promise.reject(error);
   }
 );
@@ -126,7 +145,6 @@ export const getRecipes = async () => {
 };
 
 export const addRecipe = async (recipe) => {
-  console.log('Adding recipe with payload:', recipe);
   const response = await api.post('/admin/recipes/', recipe);
   return response.data;
 };
@@ -173,23 +191,27 @@ export const deleteProduct = async (id) => {
 };
 
 // Dashboard API
-export const getDashboardStats = async () => {
-  const response = await api.get('/dashboard/stats/');
+export const getDashboardStats = async (period = '7d') => {
+  const response = await api.get(`/dashboard/stats/?period=${period}`);
+  console.log('📊 Dashboard Stats Response:', response.data);
   return response.data;
 };
 
 export const getRevenueData = async (period = '7d') => {
   const response = await api.get(`/dashboard/revenue/?period=${period}`);
+  console.log('💰 Revenue Data Response:', response.data);
   return response.data;
 };
 
-export const getTopSellingProducts = async () => {
-  const response = await api.get('/dashboard/top-products/');
+export const getTopSellingProducts = async (period = '7d') => {
+  const response = await api.get(`/dashboard/top-products/?period=${period}`);
+  console.log('🏆 Top Products Response:', response.data);
   return response.data;
 };
 
 export const getRecentOrders = async (limit = 10) => {
   const response = await api.get(`/dashboard/recent-orders/?limit=${limit}`);
+  console.log('📦 Recent Orders Response:', response.data);
   return response.data;
 };
 
@@ -265,6 +287,94 @@ export const updateStaff = async (id, staff) => {
 
 export const deleteStaff = async (id) => {
   const response = await api.delete(`/staff/${id}/`);
+  return response.data;
+};
+
+// Authentication Helper Functions
+export const isAuthenticated = () => {
+  // Owner accounts may not have branch_id; authentication should rely on token (and user presence)
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+  return !!(token && user);
+};
+
+export const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
+  } catch (error) {
+    console.error('Error parsing user data:', error);
+    return null;
+  }
+};
+
+export const getUserRole = () => {
+  const user = getCurrentUser();
+  if (!user) return null;
+  
+  const roleRaw = user.role || user.role_name || user.user_type;
+  return typeof roleRaw === 'string' ? roleRaw.toLowerCase() : roleRaw;
+};
+
+export const hasRole = (allowedRoles = []) => {
+  const role = getUserRole();
+  if (!role) return false;
+  
+  const normalized = allowedRoles.map(r => r.toLowerCase());
+  return normalized.includes(role);
+};
+
+export const clearAuth = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  localStorage.removeItem('branch_id');
+  localStorage.removeItem('role');
+};
+
+// ============================================
+// LAND MANAGEMENT API
+// ============================================
+
+// Create a new land listing
+export const createLandListing = async (listingData) => {
+  const response = await api.post('/lands/', listingData);
+  return response.data;
+};
+
+// Get all land listings
+export const getLandListings = async (params = {}) => {
+  const response = await api.get('/lands/', { params });
+  return response.data;
+};
+
+// Get a specific land listing by ID
+export const getLandListing = async (listingId) => {
+  const response = await api.get(`/lands/${listingId}`);
+  return response.data;
+};
+
+// Update a land listing
+export const updateLandListing = async (listingId, listingData) => {
+  const response = await api.put(`/lands/${listingId}`, listingData);
+  return response.data;
+};
+
+// Delete a land listing
+export const deleteLandListing = async (listingId) => {
+  const response = await api.delete(`/lands/${listingId}`);
+  return response.data;
+};
+
+// Publish a land listing
+export const publishLandListing = async (listingId) => {
+  const response = await api.post(`/lands/${listingId}/publish`);
+  return response.data;
+};
+
+// Archive a land listing
+export const archiveLandListing = async (listingId) => {
+  const response = await api.post(`/lands/${listingId}/archive`);
   return response.data;
 };
 

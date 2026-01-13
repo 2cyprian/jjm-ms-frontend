@@ -39,8 +39,11 @@ const Login = () => {
         return;
       }
 
-      // Store user data
+      // Store user data and tenant context
       localStorage.setItem('user', JSON.stringify(user));
+      if (user?.branch_id) localStorage.setItem('branch_id', user.branch_id);
+      const roleRaw = user.role || user.role_name || user.user_type;
+      if (roleRaw) localStorage.setItem('role', String(roleRaw).toLowerCase());
 
       // Store token and refresh token if present
       const token =
@@ -59,7 +62,6 @@ const Login = () => {
       const displayName = user.name || user.username || user.email || 'User';
       toast.success(`Welcome back, ${displayName}!`);
 
-      const roleRaw = user.role || user.role_name || user.user_type;
       const role = typeof roleRaw === 'string' ? roleRaw.toLowerCase() : roleRaw;
       if (role === 'admin' || role === 'owner') {
         navigate('/dashboard');

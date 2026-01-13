@@ -188,6 +188,24 @@ const AdminSettings = () => {
     setNewPrinter({ ...newPrinter, [name]: value });
   };
 
+  const openPrinterPortal = (ipAddress) => {
+    if (!ipAddress) {
+      toast.error('No IP address available for this printer');
+      return;
+    }
+    
+    // Try both http and https, most printers use http
+    const url = ipAddress.startsWith('http') ? ipAddress : `http://${ipAddress}`;
+    
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      toast.success(`Opening printer portal at ${ipAddress}`);
+    } catch (err) {
+      console.error('Failed to open printer portal:', err);
+      toast.error('Failed to open printer portal');
+    }
+  };
+
   const handleAddPrinter = async () => {
     const validation = validatePrinter(newPrinter);
     if (!validation.isValid) {
@@ -201,6 +219,13 @@ const AdminSettings = () => {
       setPrinters([...printers, addedPrinter]);
       setNewPrinter({ name: '', ip_address: '', modal: '' });
       toast.success('Printer added successfully!');
+      
+      // Automatically open printer portal after adding
+      if (addedPrinter.ip_address) {
+        setTimeout(() => {
+          openPrinterPortal(addedPrinter.ip_address);
+        }, 500);
+      }
     } catch (err) {
       console.error('Failed to add printer:', err);
       
@@ -618,14 +643,30 @@ const AdminSettings = () => {
                           </p>
                         )}
                       </div>
-                      <Button
-                        onClick={() => handleDeletePrinter(printer.id)}
-                        disabled={loading}
-                        variant="danger"
-                        style={{ padding: '0.5rem' }}
-                      >
-                        <Trash2 size={18} />
-                      </Button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <Button
+                          onClick={() => openPrinterPortal(printer.ip_address)}
+                          disabled={loading || !printer.ip_address}
+                          style={{ 
+                            padding: '0.5rem',
+                            backgroundColor: '#4CAF50',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                          }}
+                          title="Open Printer Portal"
+                        >
+                          <Printer size={18} />
+                        </Button>
+                        <Button
+                          onClick={() => handleDeletePrinter(printer.id)}
+                          disabled={loading}
+                          variant="danger"
+                          style={{ padding: '0.5rem' }}
+                        >
+                          <Trash2 size={18} />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>

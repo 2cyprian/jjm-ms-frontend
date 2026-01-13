@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchQueue, scanProduct, checkout, downloadJob, printJob, getSettings, getProducts, getRevenueData, deductStockForJob } from '../utils/api';
+import { fetchQueue, scanProduct, checkout, downloadJob, printJob, getSettings, getProducts, getRevenueData } from '../utils/api';
 import { useToast } from '../utils/toast';
 import CartItem from '../components/CartItem';
 import Button from '../components/Button';
@@ -21,10 +21,19 @@ const StaffDashboard = () => {
   const [selectedService, setSelectedService] = useState(null);
   const [servicePages, setServicePages] = useState(1);
   const [servicePrice, setServicePrice] = useState("");
-  const [savedServices, setSavedServices] = useState({
-    photocopy: null,
-    print_bw: null,
-    print_color: null
+  const [serviceType, setServiceType] = useState('photocopy'); // photocopy or print
+  const [printType, setPrintType] = useState('bw'); // bw or color
+  const [paperSize, setPaperSize] = useState('A4'); // A0-A4
+  const [paperType, setPaperType] = useState('plain'); // draft, film, gloss, plain, sticker, manila
+  const [savedServices, setSavedServices] = useState(() => {
+    try {
+      const raw = localStorage.getItem('serviceConfigurations');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {}
+    return [];
   });
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingPrintJob, setPendingPrintJob] = useState(null);
@@ -34,26 +43,13 @@ const StaffDashboard = () => {
   const scanInputRef = useRef(null);
   const toast = useToast();
 
-  // Load saved pricing (persist across reloads)
+  // Persist service configurations whenever savedServices changes
   useEffect(() => {
     try {
-      const raw = localStorage.getItem('printPricing');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setSavedServices(prev => ({
-          photocopy: parsed.photocopy ?? prev.photocopy,
-          print_bw: parsed.print_bw ?? prev.print_bw,
-          print_color: parsed.print_color ?? prev.print_color
-        }));
-      }
-    } catch {}
-  }, []);
-
-  // Persist pricing whenever savedServices changes
-  useEffect(() => {
-    try {
-      localStorage.setItem('printPricing', JSON.stringify(savedServices));
-    } catch {}
+      localStorage.setItem('serviceConfigurations', JSON.stringify(savedServices));
+    } catch (err) {
+      console.error('Failed to save service configurations:', err);
+    }
   }, [savedServices]);
 
   // Initialize daily sales from localStorage
@@ -156,95 +152,82 @@ const StaffDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Quick Service/Retail Items (prices from settings, per page in TZS)
-  const services = [
-    { id: 'photocopy', name: 'Photocopy', type: 'photocopy' },
-    { id: 'print_bw', name: 'Print (B&W)', type: 'print_bw' },
-    { id: 'print_color', name: 'Print (Color)', type: 'print_color' },
-  ];
+  // Service configuration button
+  const addNewServiceButton = { id: 'add_service', name: 'Add Service Configuration' };
 
   // Removed hardcoded retail array since we're fetching from backend
 
   // No conversion needed; settings already in TZS per page
 
-  // Handle service modal
-  const handleServiceClick = (service) => {
-    const saved = savedServices[service.type];
-    // If pricing is already set, add directly to cart
-    if (saved && saved.pages > 0 && saved.price > 0) {
-      const cartItem = {
-        type: "SERVICE",
-        id: `${service.type}_${Date.now()}`,
-        name: `${service.name} (${saved.pages} pages)`,
-        price: saved.price,
-        qty: saved.pages,
-        serviceType: service.type
-      };
-      const existing = cart.find(c => c.serviceType === service.type && c.price === saved.price);
-      if (existing) {
-        existing.qty += saved.pages;
-        setCart([...cart]);
-      } else {
-        setCart([...cart, cartItem]);
-      }
-      toast.success(`${service.name} added to cart`);
-      if (scanInputRef.current) scanInputRef.current.focus();
-      return;
-    }
-
-    // First time: open modal to set pages and price
-    setSelectedService(service);
-    setServicePages(saved?.pages ?? 1);
-    setServicePrice(saved?.price ?? "");
+  // Handle service modal - open configuration form
+  const handleOpenServiceModal = () => {
+    setServicePages(1);
+    setServicePrice("");
+    setServiceType('photocopy');
+    setPrintType('bw');
+    setPaperSize('A4');
+    setPaperType('plain');
     setShowServiceModal(true);
   };
 
-  // Save service configuration
+  // Add saved service to cart
+  const addSavedServiceToCart = (savedService) => {
+    const cartItem = {
+      type: "SERVICE",
+      id: `service_${Date.now()}`,
+      name: savedService.displayName,
+      price: savedService.price,
+      qty: savedService.pages,
+      serviceConfig: savedService
+    };
+    
+    setCart([...cart, cartItem]);
+    toast.success(`${savedService.displayName} added to cart`);
+    if (scanInputRef.current) scanInputRef.current.focus();
+  };
+
+  // Save comprehensive service configuration
   const handleSaveService = () => {
-    if (!servicePrice || servicePrice <= 0) {
-      toast.error("Please enter a valid price");
+    if (!servicePrice || parseFloat(servicePrice) <= 0) {
+      toast.error("Please enter a valid price per page");
       return;
     }
-    if (servicePages <= 0) {
+    if (!servicePages || parseInt(servicePages) <= 0) {
       toast.error("Please enter valid number of pages");
       return;
     }
 
+    // Build display name
+    let displayName = serviceType === 'photocopy' ? 'Photocopy' : `Print (${printType.toUpperCase()})`;
+    displayName += ` - ${paperSize} ${paperType}`;
+    displayName += ` (${servicePages}p)`;
+
     const serviceConfig = {
+      id: Date.now(),
+      serviceType,
+      printType: serviceType === 'print' ? printType : null,
+      paperSize,
+      paperType,
       pages: parseInt(servicePages),
-      price: parseFloat(servicePrice)
+      price: parseFloat(servicePrice),
+      displayName
     };
 
-    setSavedServices({
-      ...savedServices,
-      [selectedService.type]: serviceConfig
-    });
-
-    // Add to cart with total price (pages * price per page)
-    const totalPrice = serviceConfig.pages * serviceConfig.price;
-    const cartItem = {
-      type: "SERVICE",
-      id: `${selectedService.type}_${Date.now()}`,
-      name: `${selectedService.name} (${serviceConfig.pages} pages)`,
-      price: serviceConfig.price,
-      qty: serviceConfig.pages,
-      serviceType: selectedService.type
-    };
-
-    const existing = cart.find(c => c.serviceType === selectedService.type && c.price === serviceConfig.price);
-    if (existing) {
-      existing.qty += serviceConfig.pages;
-      setCart([...cart]);
-    } else {
-      setCart([...cart, cartItem]);
-    }
+    // Add to saved services only (not to cart)
+    setSavedServices([...savedServices, serviceConfig]);
 
     setShowServiceModal(false);
-    toast.success(`${selectedService.name} added to cart`);
+    toast.success(`${displayName} configuration saved`);
     
     if (scanInputRef.current) {
       scanInputRef.current.focus();
     }
+  };
+
+  // Delete saved service configuration
+  const deleteSavedService = (serviceId) => {
+    setSavedServices(savedServices.filter(s => s.id !== serviceId));
+    toast.success('Service configuration deleted');
   };
 
   // Add service/retail item to cart
@@ -314,8 +297,9 @@ const StaffDashboard = () => {
         // Prefill type and price from saved services
         const defaultType = 'print_bw';
         setConfirmPrintType(defaultType);
-        const saved = savedServices[defaultType];
-        setConfirmPrice(saved?.price ? String(saved.price) : '');
+        // Find a matching saved service for default price
+        const matchingService = savedServices.find(s => s.serviceType === 'print' && s.printType === 'bw');
+        setConfirmPrice(matchingService?.price ? String(matchingService.price) : '');
         setShowConfirmModal(true);
         // Cleanup iframe & URL
         setTimeout(() => {
@@ -370,24 +354,28 @@ const StaffDashboard = () => {
     }
     setLoading(true);
     try {
-      // Call backend to deduct stock for this job
-      await deductStockForJob(pendingPrintJob.job_code, {
-        pages_printed: pages,
-        price_per_page: price,
-        color_mode: confirmPrintType === 'print_color' ? 'COLOR' : 'BW'
-      });
-      // Save pricing for next time
-      setSavedServices(prev => ({
-        ...prev,
-        [confirmPrintType]: { ...(prev[confirmPrintType] || {}), price }
-      }));
-      toast.success('Stock deducted for printed job');
+      // Complete the sale for this print job using checkout endpoint
+      const itemName = pendingPrintJob?.file_name || 'Print Job';
+      const payload = {
+        payment_method: 'CASH',
+        items: [
+          {
+            type: 'SERVICE',
+            id: pendingPrintJob?.job_code || 'PRINT_JOB',
+            name: itemName,
+            quantity: 1,
+            price: price * pages // total cost derived from price per page * pages printed
+          }
+        ]
+      };
+      await checkout(payload);
+      toast.success('Sale completed for print job');
       setShowConfirmModal(false);
       setPendingPrintJob(null);
-      loadAllData();
+      loadLiveData();
     } catch (err) {
-      console.error('Error confirming print:', err);
-      const msg = err?.response?.data?.detail || err?.response?.data?.message || 'Failed to confirm print.';
+      console.error('Error completing sale for print job:', err);
+      const msg = err?.response?.data?.detail || err?.message || 'Failed to complete sale for print job.';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -635,31 +623,88 @@ const StaffDashboard = () => {
 
             {/* Services Grid */}
             <div className="quick-section">
-              <h3>Services</h3>
-              <div className="quick-grid">
-                {services.map(service => {
-                  const saved = savedServices[service.type];
-                  return (
-                    <button
-                      key={service.id}
-                      className="quick-item"
-                      onClick={() => handleServiceClick(service)}
-                      type="button"
-                    >
-                      <div className="quick-item-name">{service.name}</div>
-                      {saved ? (
-                        <div className="quick-item-price">
-                          {saved.pages}p @ {formatCurrency(saved.price, 'TZS')}/p
-                        </div>
-                      ) : (
-                        <div className="quick-item-price" style={{ fontSize: '0.9rem', color: 'var(--muted)' }}>
-                          Click to set
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0 }}>Services</h3>
+                <button
+                  onClick={handleOpenServiceModal}
+                  type="button"
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 600
+                  }}
+                >
+                  + Add Service
+                </button>
               </div>
+              {savedServices.length === 0 ? (
+                <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '1rem' }}>
+                  No service configurations. Click "Add Service" to create one.
+                </p>
+              ) : (
+                <div className="quick-grid">
+                  {savedServices.map(service => (
+                    <div
+                      key={service.id}
+                      style={{
+                        position: 'relative',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        padding: '0.75rem',
+                        background: 'white'
+                      }}
+                    >
+                      <button
+                        onClick={() => addSavedServiceToCart(service)}
+                        type="button"
+                        style={{
+                          width: '100%',
+                          textAlign: 'left',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                      >
+                        <div className="quick-item-name" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                          {service.displayName}
+                        </div>
+                        <div className="quick-item-price">
+                          {formatCurrency(service.price * service.pages, 'TZS')}
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => deleteSavedService(service.id)}
+                        type="button"
+                        style={{
+                          position: 'absolute',
+                          top: '0.5rem',
+                          right: '0.5rem',
+                          background: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          width: '24px',
+                          height: '24px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem'
+                        }}
+                        title="Delete configuration"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Retail Grid */}
@@ -755,8 +800,8 @@ const StaffDashboard = () => {
         </div>
       </div>
 
-      {/* Service Configuration Modal */}
-      {showServiceModal && selectedService && (
+      {/* Comprehensive Service Configuration Modal */}
+      {showServiceModal && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -767,18 +812,22 @@ const StaffDashboard = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          overflowY: 'auto',
+          padding: '1rem'
         }}>
           <div style={{
             backgroundColor: 'white',
             borderRadius: '8px',
             padding: '2rem',
-            maxWidth: '400px',
-            width: '90%',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
+            maxWidth: '500px',
+            width: '100%',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Configure {selectedService.name}</h3>
+              <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Add Service Configuration</h3>
               <button
                 onClick={() => setShowServiceModal(false)}
                 style={{
@@ -793,7 +842,100 @@ const StaffDashboard = () => {
               </button>
             </div>
 
-            <div style={{ marginBottom: '1.5rem' }}>
+            {/* Service Type */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                Service Type
+              </label>
+              <select
+                value={serviceType}
+                onChange={(e) => setServiceType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+              >
+                <option value="photocopy">Photocopy</option>
+                <option value="print">Print</option>
+              </select>
+            </div>
+
+            {/* Print Type (only if service is Print) */}
+            {serviceType === 'print' && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                  Print Type
+                </label>
+                <select
+                  value={printType}
+                  onChange={(e) => setPrintType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '1rem'
+                  }}
+                >
+                  <option value="bw">Black & White</option>
+                  <option value="color">Color</option>
+                </select>
+              </div>
+            )}
+
+            {/* Paper Size */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                Paper Size
+              </label>
+              <select
+                value={paperSize}
+                onChange={(e) => setPaperSize(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+              >
+                <option value="A0">A0</option>
+                <option value="A1">A1</option>
+                <option value="A2">A2</option>
+                <option value="A3">A3</option>
+                <option value="A4">A4</option>
+              </select>
+            </div>
+
+            {/* Paper Type */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                Paper Type
+              </label>
+              <select
+                value={paperType}
+                onChange={(e) => setPaperType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '1rem'
+                }}
+              >
+                <option value="draft">Draft-Film</option>
+                <option value="gloss">Gloss</option>
+                <option value="plain">Plain</option>
+                <option value="sticker">Sticker</option>
+                <option value="manila">Manila</option>
+              </select>
+            </div>
+
+            {/* Number of Pages */}
+            <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
                 Number of Pages
               </label>
@@ -812,6 +954,7 @@ const StaffDashboard = () => {
               />
             </div>
 
+            {/* Price per Page */}
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
                 Price per Page (TZS)
@@ -833,21 +976,29 @@ const StaffDashboard = () => {
               />
             </div>
 
+            {/* Total Preview */}
             {servicePrice && servicePages && (
               <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                border: '1px solid rgba(76, 175, 80, 0.3)',
                 padding: '1rem',
-                borderRadius: '4px',
-                marginBottom: '1.5rem',
-                textAlign: 'center'
+                borderRadius: '6px',
+                marginBottom: '1.5rem'
               }}>
-                <div style={{ color: 'var(--muted)', marginBottom: '0.5rem' }}>Total:</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>
-                  {formatCurrency(parseInt(servicePages) * parseFloat(servicePrice), 'TZS')}
+                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Configuration Summary:</div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#333' }}>
+                  {serviceType === 'photocopy' ? 'Photocopy' : `Print (${printType.toUpperCase()})`} - {paperSize} {paperType} ({servicePages}p)
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 600 }}>Total:</span>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4CAF50' }}>
+                    {formatCurrency(parseInt(servicePages || 0) * parseFloat(servicePrice || 0), 'TZS')}
+                  </span>
                 </div>
               </div>
             )}
 
+            {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button
                 onClick={() => setShowServiceModal(false)}
@@ -878,7 +1029,7 @@ const StaffDashboard = () => {
                   fontWeight: 600
                 }}
               >
-                Add to Cart
+                Save Configuration
               </button>
             </div>
           </div>
@@ -920,8 +1071,8 @@ const StaffDashboard = () => {
                       checked={confirmPrintType === 'print_bw'}
                       onChange={() => {
                         setConfirmPrintType('print_bw');
-                        const s = savedServices['print_bw'];
-                        setConfirmPrice(s?.price ? String(s.price) : '');
+                        const matchingService = savedServices.find(s => s.serviceType === 'print' && s.printType === 'bw');
+                        setConfirmPrice(matchingService?.price ? String(matchingService.price) : '');
                       }}
                     />
                     B&W
@@ -934,8 +1085,8 @@ const StaffDashboard = () => {
                       checked={confirmPrintType === 'print_color'}
                       onChange={() => {
                         setConfirmPrintType('print_color');
-                        const s = savedServices['print_color'];
-                        setConfirmPrice(s?.price ? String(s.price) : '');
+                        const matchingService = savedServices.find(s => s.serviceType === 'print' && s.printType === 'color');
+                        setConfirmPrice(matchingService?.price ? String(matchingService.price) : '');
                       }}
                     />
                     Color
