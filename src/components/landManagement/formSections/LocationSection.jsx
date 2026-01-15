@@ -16,11 +16,11 @@ const LocationSection = ({ formData, handleChange }) => {
           />
         </div>
         <div className="form-group">
-          <label>Region *</label>
+          <label>District *</label>
           <input
             type="text"
-            value={formData.addressRegion}
-            onChange={(e) => handleChange('addressRegion', e.target.value)}
+            value={formData.addressDistrict}
+            onChange={(e) => handleChange('addressDistrict', e.target.value)}
             placeholder="e.g., Kinondoni"
           />
         </div>
@@ -36,23 +36,32 @@ const LocationSection = ({ formData, handleChange }) => {
       </div>
       <div className="form-grid">
         <div className="form-group">
-          <label>Latitude</label>
+          <label>Coordinates (Latitude, Longitude)</label>
           <input
-            type="number"
-            step="any"
-            value={formData.latitude}
-            onChange={(e) => handleChange('latitude', e.target.value)}
-            placeholder="e.g., -6.7924"
-          />
-        </div>
-        <div className="form-group">
-          <label>Longitude</label>
-          <input
-            type="number"
-            step="any"
-            value={formData.longitude}
-            onChange={(e) => handleChange('longitude', e.target.value)}
-            placeholder="e.g., 39.2083"
+            type="text"
+            value={
+              formData.latitude && formData.longitude
+                ? `${formData.latitude},${formData.longitude}`
+                : ''
+            }
+            onChange={(e) => {
+              const value = e.target.value.trim();
+              if (value === '') {
+                handleChange('latitude', '');
+                handleChange('longitude', '');
+              } else {
+                const coords = value.split(',').map(c => c.trim());
+                if (coords.length === 2) {
+                  const lat = coords[0];
+                  const lng = coords[1];
+                  if (!isNaN(lat) && !isNaN(lng)) {
+                    handleChange('latitude', lat);
+                    handleChange('longitude', lng);
+                  }
+                }
+              }
+            }}
+            placeholder="e.g., -6.7924,39.2083"
           />
         </div>
       </div>

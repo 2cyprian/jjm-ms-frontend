@@ -30,11 +30,11 @@ import '../css/components/admin.css';
 const AdminSettings = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(false);
-  const [watchdogStatus, setWatchdogStatus] = useState(null);
   const toast = useToast();
 
   // General Settings State
   const [settings, setSettings] = useState({
+    service_form: '',
     price_bw_a4: 0.05,
     price_color_a4: 0.15,
     price_bw_a3: 0.08,
@@ -55,7 +55,6 @@ const AdminSettings = () => {
 
   // Load data on mount
   useEffect(() => {
-    // Auto-load now that backend supports GET
     loadAllData();
   }, []);
 
@@ -73,9 +72,6 @@ const AdminSettings = () => {
       setPrinters(printersData);
       setRecipes(recipesData);
       
-      // Check watchdog status
-      await checkWatchdogStatus();
-      
       toast.success('Admin data loaded!');
     } catch (err) {
       console.error('Error loading data:', err);
@@ -87,66 +83,7 @@ const AdminSettings = () => {
     }
   };
 
-  const normalizeWatchdogStatus = (res) => {
-    const asString = (value) =>
-      value === undefined || value === null ? '' : String(value).toLowerCase();
-
-    const statusValue =
-      typeof res === 'string'
-        ? res
-        : res?.status || res?.state || res?.message || res?.detail || res?.running;
-
-    const running =
-      res?.running === true ||
-      res?.running === 'true' ||
-      asString(statusValue).includes('run');
-
-    const message =
-      typeof res === 'string'
-        ? res
-        : res?.message || res?.detail || statusValue || '';
-
-    return { running: Boolean(running), message };
-  };
-
-  // Printer Watchdog Control
-  const checkWatchdogStatus = async () => {
-    try {
-      const response = await controlPrinter('status');
-      setWatchdogStatus(normalizeWatchdogStatus(response));
-    } catch (err) {
-      console.error('Failed to check watchdog status:', err);
-      setWatchdogStatus({ running: false, message: err.response?.data?.message || 'Unavailable' });
-    }
-  };
-
-  const handleStartWatchdog = async () => {
-    setLoading(true);
-    try {
-      const response = await controlPrinter('start');
-      setWatchdogStatus(normalizeWatchdogStatus(response));
-      toast.success('Printer watchdog started successfully!');
-    } catch (err) {
-      console.error('Failed to start watchdog:', err);
-      toast.error(err.response?.data?.message || 'Failed to start printer watchdog.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStopWatchdog = async () => {
-    setLoading(true);
-    try {
-      const response = await controlPrinter('stop');
-      setWatchdogStatus(normalizeWatchdogStatus(response));
-      toast.success('Printer watchdog stopped successfully!');
-    } catch (err) {
-      console.error('Failed to stop watchdog:', err);
-      toast.error(err.response?.data?.message || 'Failed to stop printer watchdog.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   // General Settings Handlers
   const handleSettingsChange = (e) => {
@@ -442,7 +379,33 @@ const AdminSettings = () => {
               gap: '1.5rem',
               marginBottom: '2rem'
             }}>
-              {Object.entries(settings).map(([key, value]) => (
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.5rem',
+                  fontWeight: '600',
+                  color: '#333',
+                  textTransform: 'capitalize'
+                }}>
+                  Service Form
+                </label>
+                <input
+                  type="text"
+                  name="service_form"
+                  value={settings.service_form || ''}
+                  onChange={handleSettingsChange}
+                  placeholder="Enter service form"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              {Object.entries(settings).filter(([key]) => key !== 'service_form').map(([key, value]) => (
                 <div key={key}>
                   <label style={{
                     display: 'block',
@@ -487,59 +450,6 @@ const AdminSettings = () => {
         {activeTab === 'printers' && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem' }}>
             <h2 style={{ color: 'var(--primary)', marginBottom: '1.5rem' }}>Manage Printers</h2>
-
-            {/* Printer Watchdog Control */}
-            <div style={{
-              backgroundColor: watchdogStatus?.running ? '#e8f5e9' : '#fff3e0',
-              padding: '1.5rem',
-              borderRadius: '8px',
-              marginBottom: '2rem',
-              border: `2px solid ${watchdogStatus?.running ? '#4caf50' : '#ff9800'}`
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 0.5rem 0', color: '#333', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Printer size={20} />
-                    Printer Watchdog Service
-                  </h3>
-                  <p style={{ margin: 0, color: '#666' }}>
-                    Status: <strong style={{ color: watchdogStatus?.running ? '#4caf50' : '#ff9800' }}>
-                      {watchdogStatus?.running ? 'Running' : 'Stopped'}
-                    </strong>
-                    {watchdogStatus?.message && <span> - {watchdogStatus.message}</span>}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <Button
-                    onClick={handleStartWatchdog}
-                    disabled={loading || watchdogStatus?.running}
-                    variant="success"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <Zap size={18} />
-                    Start
-                  </Button>
-                  <Button
-                    onClick={handleStopWatchdog}
-                    disabled={loading || !watchdogStatus?.running}
-                    variant="danger"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <Trash2 size={18} />
-                    Stop
-                  </Button>
-                  <Button
-                    onClick={checkWatchdogStatus}
-                    disabled={loading}
-                    variant="secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <Settings size={18} />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
-            </div>
 
             {/* Add New Printer */}
             <div style={{

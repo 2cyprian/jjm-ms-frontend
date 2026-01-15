@@ -12,6 +12,7 @@ import TopSellingList from '../components/adminDashboard/TopSellingList';
 import RecentOrdersTable from '../components/adminDashboard/RecentOrdersTable';
 import QuickActions from '../components/adminDashboard/QuickActions';
 import SystemStatusCard from '../components/adminDashboard/SystemStatusCard';
+import CacheStatusCard from '../components/adminDashboard/CacheStatusCard';
 import NewOrderModal from '../components/adminDashboard/NewOrderModal';
 import AddStockModal from '../components/adminDashboard/AddStockModal';
 
@@ -34,7 +35,9 @@ const AdminDashboard = () => {
   const [revenueData, setRevenueData] = useState([]);
   const [topSelling, setTopSelling] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // first-load spinner only
+  const [refreshing, setRefreshing] = useState(false); // background refresh indicator
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(null);
   // Quick Actions state
   const [showNewOrder, setShowNewOrder] = useState(false);
@@ -53,20 +56,10 @@ const AdminDashboard = () => {
   const [totalPrintPages, setTotalPrintPages] = useState(0);
   const [completedPrintJobs, setCompletedPrintJobs] = useState(0);
   // Date filter state
-  const [dateFilter, setDateFilter] = useState('7d'); // 1d, 7d, 30d, 90d
+  const [dateFilter, setDateFilter] = useState('last_7_days'); // today, last_7_days, last_30_days, last_90_days
   const [ordersLimit, setOrdersLimit] = useState(10);
 
-  // Debug: Log state changes
-  useEffect(() => {
-    console.log('📊 State Updated:', {
-      stats,
-      revenueDataCount: revenueData.length,
-      topSellingCount: topSelling.length,
-      recentOrdersCount: recentOrders.length,
-      activePrintJobs,
-      totalRevenueDisplay: stats.totalRevenue
-    });
-  }, [stats, revenueData, topSelling, recentOrders, activePrintJobs]);
+
 
   useEffect(() => {
     // Role guard: redirect staff to staff dashboard
@@ -97,9 +90,13 @@ const AdminDashboard = () => {
   };
 
   const loadDashboardData = async () => {
-    console.log('🔄 Loading Dashboard Data...', { dateFilter, ordersLimit });
+    const isFirstLoad = !hasLoaded;
     try {
-      setLoading(true);
+      if (isFirstLoad) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
       const toNumber = (v) => {
         if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
         if (typeof v === 'string') {
@@ -119,18 +116,11 @@ const AdminDashboard = () => {
         fetchQueue()
       ]);
 
-      console.log('📊 Dashboard Data Fetch Results:', {
-        statsData: statsData.status === 'fulfilled' ? statsData.value : statsData.reason,
-        revenueRes: revenueRes.status === 'fulfilled' ? revenueRes.value : revenueRes.reason,
-        topProductsRes: topProductsRes.status === 'fulfilled' ? topProductsRes.value : topProductsRes.reason,
-        ordersRes: ordersRes.status === 'fulfilled' ? ordersRes.value : ordersRes.reason,
-        jobsRes: jobsRes.status === 'fulfilled' ? jobsRes.value : jobsRes.reason
-      });
+
 
       // Set stats with fallback - orders and print jobs are separate
       if (statsData.status === 'fulfilled') {
           const data = statsData.value || {};
-          console.log('📈 Stats Data:', data);
           const statsToSet = {
             totalRevenue: toNumber(data.total_revenue ?? data.total_sales),
             revenueChange: toNumber(data.revenue_change),
@@ -140,7 +130,6 @@ const AdminDashboard = () => {
             dailyFootfall: toNumber(data.daily_footfall),
             footfallChange: toNumber(data.footfall_change)
           };
-          console.log('✅ Setting Stats State:', statsToSet);
           setStats(statsToSet);
       } else {
         console.warn('Stats endpoint failed:', statsData.reason);
@@ -148,12 +137,24 @@ const AdminDashboard = () => {
 
       // Set revenue data with fallback and array guard
       if (revenueRes.status === 'fulfilled') {
-        console.log('💰 Revenue Data Raw:', revenueRes.value);
-        const data = Array.isArray(revenueRes.value) ? revenueRes.value.map(d => ({
-          day: d.day || d.date,
-          value: toNumber(d.value ?? d.revenue)
-        })) : [];
-        console.log('💰 Revenue Data Processed:', data);
+        const revenuePayload = revenueRes.value;
+        // Support multiple backend shapes: plain array or wrapped under data/results/chart/points
+        const revenueArray = Array.isArray(revenuePayload)
+          ? revenuePayload
+          : Array.isArray(revenuePayload?.data)
+            ? revenuePayload.data
+            : Array.isArray(revenuePayload?.results)
+              ? revenuePayload.results
+              : Array.isArray(revenuePayload?.chart)
+                ? revenuePayload.chart
+                : Array.isArray(revenuePayload?.points)
+                  ? revenuePayload.points
+                  : [];
+
+        const data = revenueArray.map(d => ({
+          day: d.day || d.date || d.label || d.period || '—',
+          value: toNumber(d.value ?? d.revenue ?? d.amount ?? d.total)
+        }));
         setRevenueData(data);
       } else {
         console.warn('Revenue endpoint failed:', revenueRes.reason);
@@ -170,7 +171,6 @@ const AdminDashboard = () => {
 
       // Set top products with fallback and array guard
       if (topProductsRes.status === 'fulfilled') {
-        console.log('🏆 Top Products Raw:', topProductsRes.value);
         const data = Array.isArray(topProductsRes.value)
           ? topProductsRes.value.map((p, idx) => ({
               name: p.name || p.product_name || p.title || `Product ${idx + 1}`,
@@ -178,7 +178,6 @@ const AdminDashboard = () => {
               percentage: p.percentage ?? p.share ?? p.percent ?? 0,
             }))
           : [];
-        console.log('🏆 Top Products Processed:', data);
         setTopSelling(data);
       } else {
         console.warn('Top products endpoint failed:', topProductsRes.reason);
@@ -187,7 +186,6 @@ const AdminDashboard = () => {
 
       // Set recent orders with fallback and array guard
       if (ordersRes.status === 'fulfilled') {
-        console.log('📦 Recent Orders Raw:', ordersRes.value);
         const data = Array.isArray(ordersRes.value)
           ? ordersRes.value.map((o, idx) => ({
               id: o.id ?? o.order_id ?? o.code ?? `#${idx + 1}`,
@@ -197,7 +195,6 @@ const AdminDashboard = () => {
               amount: toNumber(o.amount ?? o.total_amount ?? o.total),
             }))
           : [];
-        console.log('📦 Recent Orders Processed:', data);
         setRecentOrders(data);
       } else {
         console.warn('Recent orders endpoint failed:', ordersRes.reason);
@@ -206,7 +203,6 @@ const AdminDashboard = () => {
 
       // Set print jobs with fallback and array guard
       if (jobsRes.status === 'fulfilled') {
-        console.log('🖨️ Print Jobs Raw:', jobsRes.value);
         const allJobs = Array.isArray(jobsRes.value) ? jobsRes.value : [];
         // Filter for active jobs (pending/processing only)
         const activeJobs = allJobs.filter(job => 
@@ -223,7 +219,6 @@ const AdminDashboard = () => {
           return sum + pages;
         }, 0);
 
-        console.log('🖨️ Active Print Jobs:', activeJobs.length, 'out of', allJobs.length, 'pages:', totalPages, 'completed:', completedJobs.length);
         setPrintJobs(allJobs);
         setPrintJobsCount(allJobs.length);
         setActivePrintJobs(activeJobs.length);
@@ -240,8 +235,9 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error);
     } finally {
+      setHasLoaded(true);
       setLoading(false);
-      console.log('✅ Dashboard Load Complete - Loading state set to false');
+      setRefreshing(false);
     }
   };
 
@@ -341,7 +337,7 @@ const AdminDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !hasLoaded) {
     return (
       <div className="dashboard-container">
         <Sidebar />
@@ -362,6 +358,12 @@ const AdminDashboard = () => {
           dateFilter={dateFilter} 
           onDateFilterChange={handleDateFilterChange} 
         />
+
+        {refreshing && (
+          <div style={{ padding: '0.5rem 1.5rem', color: '#666', fontSize: '0.9rem' }}>
+            Refreshing data...
+          </div>
+        )}
 
         {/* Scrollable Content */}
         <div className="dashboard-scroll-content">
@@ -399,6 +401,8 @@ const AdminDashboard = () => {
             <div className="side-panels">
               <QuickActions onNewOrder={openNewOrderModal} onAddStock={openAddStockModal} />
 
+              <CacheStatusCard />
+              
               <SystemStatusCard />
             </div>
           </div>

@@ -36,12 +36,19 @@ const BasicInfoSection = ({ formData, handleChange }) => {
         </div>
         <div className="form-group">
           <label>Land Use</label>
-          <input
-            type="text"
+          <select
             value={formData.landUse}
             onChange={(e) => handleChange('landUse', e.target.value)}
-            placeholder="e.g., Residential Development"
-          />
+          >
+            <option value="">Select Land Use</option>
+            <option value="Residential Development">Residential Development</option>
+            <option value="Commercial Development">Commercial Development</option>
+            <option value="Industrial">Industrial</option>
+            <option value="Agricultural">Agricultural</option>
+            <option value="Mixed Use">Mixed Use</option>
+            <option value="Recreational">Recreational</option>
+            <option value="Institutional">Institutional</option>
+          </select>
         </div>
       </div>
       <div className="form-group">

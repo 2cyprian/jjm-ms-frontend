@@ -111,8 +111,6 @@ export const getPrinters = async () => {
 };
 
 export const addPrinter = async (printer) => {
-  console.log('Adding printer with payload:', printer);
-  
 // Confirm a job printed successfully and deduct stock
 
   const response = await api.post('/admin/printers/', printer);
@@ -191,27 +189,39 @@ export const deleteProduct = async (id) => {
 };
 
 // Dashboard API
-export const getDashboardStats = async (period = '7d') => {
-  const response = await api.get(`/dashboard/stats/?period=${period}`);
-  console.log('📊 Dashboard Stats Response:', response.data);
+export const getDashboardStats = async (dateRange = 'last_7_days') => {
+  const response = await api.get(`/dashboard/dashboard/stats?date_range=${dateRange}`);
   return response.data;
 };
 
-export const getRevenueData = async (period = '7d') => {
-  const response = await api.get(`/dashboard/revenue/?period=${period}`);
-  console.log('💰 Revenue Data Response:', response.data);
+export const getRevenueData = async (dateRange = 'last_7_days') => {
+  const response = await api.get(`/dashboard/dashboard/revenue?date_range=${dateRange}`);
   return response.data;
 };
 
-export const getTopSellingProducts = async (period = '7d') => {
-  const response = await api.get(`/dashboard/top-products/?period=${period}`);
-  console.log('🏆 Top Products Response:', response.data);
+export const getTopSellingProducts = async (dateRange = 'last_7_days', limit = 5) => {
+  const response = await api.get(`/dashboard/dashboard/top-products?date_range=${dateRange}&limit=${limit}`);
   return response.data;
 };
 
 export const getRecentOrders = async (limit = 10) => {
-  const response = await api.get(`/dashboard/recent-orders/?limit=${limit}`);
-  console.log('📦 Recent Orders Response:', response.data);
+  const response = await api.get(`/dashboard/dashboard/recent-orders?limit=${limit}`);
+  return response.data;
+};
+
+// Dashboard Cache Management API
+export const getCacheHealth = async () => {
+  const response = await api.get('/dashboard/dashboard/cache/health');
+  return response.data;
+};
+
+export const getCacheStats = async () => {
+  const response = await api.get('/dashboard/dashboard/cache/stats');
+  return response.data;
+};
+
+export const invalidateCache = async () => {
+  const response = await api.post('/dashboard/dashboard/cache/invalidate');
   return response.data;
 };
 
@@ -266,7 +276,6 @@ export const getStaff = async (filters = {}) => {
     return response.data;
   }
   const result = response.data?.results || response.data?.data || [];
-  console.log('Returning processed result, length:', result.length);
   return result;
 };
 
@@ -338,25 +347,61 @@ export const clearAuth = () => {
 
 // Create a new land listing
 export const createLandListing = async (listingData) => {
+  console.log('[API] Creating land listing with data:', listingData);
+  console.log('[API] Images in request:', listingData.images);
   const response = await api.post('/lands/', listingData);
+  console.log('[API] Response from server:', response.data);
   return response.data;
+};
+
+// Helper function to transform backend response to match frontend expectations
+const transformLandListing = (listing) => {
+  if (!listing) return listing;
+  return {
+    ...listing,
+    // Transform status field to is_published boolean
+    is_published: listing.status === 'Published' || listing.is_published === true,
+    is_archived: listing.status === 'Archived' || listing.is_archived === true,
+    // Transform images if needed
+    images: listing.images || (listing.coverImageUrl ? [{ url: listing.coverImageUrl, isCover: true }] : []),
+    // Ensure addressDistrict matches backend field
+    addressDistrict: listing.addressDistrict || listing.addressRegion || '',
+  };
 };
 
 // Get all land listings
 export const getLandListings = async (params = {}) => {
   const response = await api.get('/lands/', { params });
-  return response.data;
+  let data;
+  // Handle both direct array and paginated response
+  if (Array.isArray(response.data)) {
+    data = response.data;
+  } else {
+    data = response.data?.results || response.data?.data || [];
+  }
+  console.log('[API] Raw land listings response:', data);
+  // Transform all listings
+  const transformed = data.map(transformLandListing);
+  console.log('[API] Transformed land listings:', transformed);
+  return transformed;
 };
 
 // Get a specific land listing by ID
 export const getLandListing = async (listingId) => {
   const response = await api.get(`/lands/${listingId}`);
-  return response.data;
+  const transformed = transformLandListing(response.data);
+  console.log('[API] Raw single listing:', response.data);
+  console.log('[API] Transformed single listing:', transformed);
+  return transformed;
 };
 
 // Update a land listing
 export const updateLandListing = async (listingId, listingData) => {
+  console.log('[API] Updating land listing ID:', listingId);
+  console.log('[API] Update data:', listingData);
+  console.log('[API] Images in request:', listingData.images);
   const response = await api.put(`/lands/${listingId}`, listingData);
+  console.log('[API] Response from server:', response.data);
   return response.data;
 };
 
@@ -368,13 +413,113 @@ export const deleteLandListing = async (listingId) => {
 
 // Publish a land listing
 export const publishLandListing = async (listingId) => {
+  console.log('[API PUBLISH] Sending request for listing ID:', listingId);
   const response = await api.post(`/lands/${listingId}/publish`);
-  return response.data;
+  console.log('[API PUBLISH] Response from server:', response.data);
+  const transformed = transformLandListing(response.data);
+  console.log('[API PUBLISH] Transformed response:', transformed);
+  return transformed;
 };
 
 // Archive a land listing
 export const archiveLandListing = async (listingId) => {
+  console.log('[API ARCHIVE] Sending request for listing ID:', listingId);
   const response = await api.post(`/lands/${listingId}/archive`);
+  console.log('[API ARCHIVE] Response from server:', response.data);
+  const transformed = transformLandListing(response.data);
+  console.log('[API ARCHIVE] Transformed response:', transformed);
+  return transformed;
+};
+
+// ============================================
+// LAND VISIT REQUESTS API
+// ============================================
+
+// Create a visit request for a land listing
+export const createVisitRequest = async (listingId, requestData) => {
+  const response = await api.post(`/lands/${listingId}/visit-requests`, requestData);
+  return response.data;
+};
+
+// Get all visit requests for a specific land listing
+export const getVisitRequests = async (listingId, params = {}) => {
+  const response = await api.get(`/lands/${listingId}/visit-requests`, { params });
+  let data = response.data?.requests || (Array.isArray(response.data) ? response.data : (response.data?.results || response.data?.data || []));
+  return data.map(transformVisitRequest);
+};
+
+// Transform visit request data from API format to UI format
+const transformVisitRequest = (request) => {
+  if (!request) return request;
+  
+  // Extract date and time from preferredVisitDate
+  let preferred_date = null;
+  let preferred_time = null;
+  
+  if (request.preferredVisitDate) {
+    try {
+      const date = new Date(request.preferredVisitDate);
+      preferred_date = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      preferred_time = date.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+    } catch (err) {
+      console.warn('[API] Error parsing preferredVisitDate:', err);
+    }
+  }
+  
+  return {
+    ...request,
+    // Map requester fields to visitor fields
+    visitor_name: request.requesterName || request.visitorName,
+    visitor_email: request.requesterEmail || request.visitorEmail,
+    visitor_phone: request.requesterPhone || request.visitorPhone,
+    preferred_date: preferred_date,
+    preferred_time: preferred_time,
+  };
+};
+
+// Get all visit requests across all listings
+export const getAllVisitRequests = async (params = {}) => {
+  try {
+    const response = await api.get('/lands/visit-requests', { params });
+    // Handle different response formats: requests property, results, data, or direct array
+    let data = response.data?.requests || (Array.isArray(response.data) ? response.data : (response.data?.results || response.data?.data || []));
+    return data.map(transformVisitRequest);
+  } catch (err) {
+    // If global endpoint fails, fetch from all listings
+    if (err.response?.status === 404) {
+      try {
+        const listings = await getLandListings();
+        const allRequests = [];
+        
+        for (const listing of listings) {
+          try {
+            const requests = await getVisitRequests(listing.id);
+            if (requests && requests.length > 0) {
+              allRequests.push(...requests);
+            }
+          } catch (listingErr) {
+            // Skip this listing if error
+          }
+        }
+        
+        return allRequests;
+      } catch (fallbackErr) {
+        throw fallbackErr;
+      }
+    }
+    throw err;
+  }
+};
+
+// Get details of a specific visit request
+export const getVisitRequest = async (requestId) => {
+  const response = await api.get(`/lands/visit-requests/${requestId}`);
+  return response.data;
+};
+
+// Update visit request status
+export const updateVisitRequestStatus = async (requestId, newStatus) => {
+  const response = await api.put(`/lands/visit-requests/${requestId}/status?new_status=${newStatus}`);
   return response.data;
 };
 

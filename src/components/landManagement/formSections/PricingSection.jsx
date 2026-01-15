@@ -58,12 +58,18 @@ const PricingSection = ({ formData, handleChange }) => {
         </div>
         <div className="form-group">
           <label>Title Deed Status</label>
-          <input
-            type="text"
+          <select
             value={formData.titleDeed}
             onChange={(e) => handleChange('titleDeed', e.target.value)}
-            placeholder="e.g., Available, Processing, etc."
-          />
+          >
+            <option value="">Select Title Deed Status</option>
+            <option value="Available">Available</option>
+            <option value="Processing">Processing</option>
+            <option value="Pending">Pending</option>
+            <option value="Not Available">Not Available</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Approved">Approved</option>
+          </select>
         </div>
       </div>
     </div>

@@ -11,6 +11,7 @@ import AdminInventory from './pages/AdminInventory';
 import AdminDashboard from './pages/AdminDashboard';
 import BranchManagement from './pages/BranchManagement';
 import AdminLandManagement from './pages/AdminLandManagement';
+import RentalSystem from './pages/RentalSystem';
 
 function App() {
   return (
@@ -20,16 +21,9 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/customer" element={<CustomerUpload />} />
           
           {/* Protected routes - require authentication */}
-          <Route 
-            path="/customer" 
-            element={
-              <ProtectedRoute>
-                <CustomerUpload />
-              </ProtectedRoute>
-            } 
-          />
           <Route 
             path="/staff" 
             element={
@@ -83,6 +77,16 @@ function App() {
                 <AdminLandManagement />
               </ProtectedRoute>
             } 
+          />
+
+          {/* Rental Management route */}
+          <Route
+            path="/rentals"
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'owner', 'manager', 'staff']}>
+                <RentalSystem />
+              </ProtectedRoute>
+            }
           />
         </Routes>
       </BrowserRouter>

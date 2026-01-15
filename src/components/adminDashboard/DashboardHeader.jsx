@@ -2,10 +2,10 @@ import React from 'react';
 
 const DashboardHeader = ({ dateFilter, onDateFilterChange }) => {
   const filterOptions = [
-    { value: '1d', label: 'Today' },
-    { value: '7d', label: 'Last 7 Days' },
-    { value: '30d', label: 'Last 30 Days' },
-    { value: '90d', label: 'Last 90 Days' }
+    { value: 'today', label: 'Today' },
+    { value: 'last_7_days', label: 'Last 7 Days' },
+    { value: 'last_30_days', label: 'Last 30 Days' },
+    { value: 'last_90_days', label: 'Last 90 Days' }
   ];
 
   const currentFilterLabel = filterOptions.find(opt => opt.value === dateFilter)?.label || 'Last 7 Days';
@@ -14,7 +14,20 @@ const DashboardHeader = ({ dateFilter, onDateFilterChange }) => {
     <div className="admin-dashboard-header">
       <div>
         <h2>Dashboard Overview</h2>
-        <p className="subtitle">Manage operations and key metrics</p>
+        <p className="subtitle">
+          Manage operations and key metrics
+          <span style={{
+            marginLeft: '1rem',
+            padding: '0.15rem 0.5rem',
+            backgroundColor: '#e3f2fd',
+            color: '#1976d2',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontWeight: '600'
+          }}>
+            ⚡ Redis Cache Enabled
+          </span>
+        </p>
       </div>
       <div className="header-actions">
         <div className="search-box">

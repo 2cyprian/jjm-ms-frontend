@@ -21,11 +21,13 @@ const RevenueChart = ({ revenueData, dateFilter }) => {
   const pointRadius = 4;
   const safeMax = Math.max(maxRevenue, 1);
   const step = hasData && revenueData.length > 1 ? width / (revenueData.length - 1) : 0;
-  const points = hasData
+  
+  // Generate path for simple line graph
+  const linePath = hasData
     ? revenueData.map((item, idx) => {
         const x = step * idx;
         const y = height - (item.value / safeMax) * height;
-        return `${x},${y}`;
+        return idx === 0 ? `M ${x},${y}` : `L ${x},${y}`;
       }).join(' ')
     : '';
 
@@ -41,11 +43,11 @@ const RevenueChart = ({ revenueData, dateFilter }) => {
       {hasData ? (
         <div style={{ padding: '1rem 1rem 0 1rem' }}>
           <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height: '220px' }}>
-            <polyline
+            <path
               fill="none"
               stroke="#4f46e5"
               strokeWidth="2.5"
-              points={points}
+              d={linePath}
               strokeLinejoin="round"
               strokeLinecap="round"
             />

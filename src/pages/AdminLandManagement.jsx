@@ -8,6 +8,7 @@ import StatsCards from '../components/landManagement/StatsCards';
 import ListingsTable from '../components/landManagement/ListingsTable';
 import ListingFormModal from '../components/landManagement/ListingFormModal';
 import ListingDetailModal from '../components/landManagement/ListingDetailModal';
+import AllVisitRequestsModal from '../components/landManagement/AllVisitRequestsModal';
 import '../css/components/landManagement.css';
 
 const AdminLandManagement = () => {
@@ -19,6 +20,7 @@ const AdminLandManagement = () => {
   const [regionFilter, setRegionFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showAllRequests, setShowAllRequests] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -105,12 +107,24 @@ const AdminLandManagement = () => {
   const handleSaveListing = async (listingData) => {
     try {
       setLoading(true);
+      console.log('=== LAND LISTING DATA BEING SENT TO BACKEND ===');
+      console.log('Full listing data:', listingData);
+      console.log('Images data:', listingData.images);
+      console.log('Images count:', listingData.images?.length || 0);
+      if (listingData.images && listingData.images.length > 0) {
+        console.log('First image:', listingData.images[0]);
+      }
+      console.log('Location - Latitude:', listingData.latitude, 'Longitude:', listingData.longitude);
+      console.log('========================================');
+      
       if (listingData.id) {
         // Edit existing
+        console.log('Updating existing listing with ID:', listingData.id);
         await updateLandListing(listingData.id, listingData);
         toast.success('Listing updated successfully');
       } else {
         // Create new
+        console.log('Creating new listing');
         await createLandListing(listingData);
         toast.success('Listing created successfully');
       }
@@ -129,13 +143,37 @@ const AdminLandManagement = () => {
   const handlePublishListing = async (listingId) => {
     try {
       setLoading(true);
-      await publishLandListing(listingId);
+      console.log('[PUBLISH] Publishing listing ID:', listingId);
+      
+      // Call API and get the updated listing data
+      const updatedListing = await publishLandListing(listingId);
+      console.log('[PUBLISH] API returned updated listing:', updatedListing);
+      
+      // Update listings with the API response (source of truth)
+      setListings(prevListings =>
+        prevListings.map(listing =>
+          listing.id === listingId
+            ? { ...listing, ...updatedListing }
+            : listing
+        )
+      );
+      
+      setFilteredListings(prevListings =>
+        prevListings.map(listing =>
+          listing.id === listingId
+            ? { ...listing, ...updatedListing }
+            : listing
+        )
+      );
+      
+      console.log('[PUBLISH] State updated with API response');
       toast.success('Listing published successfully');
-      await loadListings();
     } catch (err) {
       console.error('Error publishing listing:', err);
       const msg = err?.response?.data?.detail || 'Failed to publish listing';
       toast.error(msg);
+      // Reload to revert on error
+      await loadListings();
     } finally {
       setLoading(false);
     }
@@ -145,13 +183,37 @@ const AdminLandManagement = () => {
     if (window.confirm('Are you sure you want to archive this listing?')) {
       try {
         setLoading(true);
-        await archiveLandListing(listingId);
+        console.log('[ARCHIVE] Archiving listing ID:', listingId);
+        
+        // Call API and get the updated listing data
+        const updatedListing = await archiveLandListing(listingId);
+        console.log('[ARCHIVE] API returned updated listing:', updatedListing);
+        
+        // Update listings with the API response (source of truth)
+        setListings(prevListings =>
+          prevListings.map(listing =>
+            listing.id === listingId
+              ? { ...listing, ...updatedListing }
+              : listing
+          )
+        );
+        
+        setFilteredListings(prevListings =>
+          prevListings.map(listing =>
+            listing.id === listingId
+              ? { ...listing, ...updatedListing }
+              : listing
+          )
+        );
+        
+        console.log('[ARCHIVE] State updated with API response');
         toast.success('Listing archived successfully');
-        await loadListings();
       } catch (err) {
         console.error('Error archiving listing:', err);
         const msg = err?.response?.data?.detail || 'Failed to archive listing';
         toast.error(msg);
+        // Reload to revert on error
+        await loadListings();
       } finally {
         setLoading(false);
       }
@@ -167,7 +229,10 @@ const AdminLandManagement = () => {
     <div className="dashboard-container">
       <Sidebar />
       <div className="main-content">
-        <LandHeader onCreateListing={handleCreateListing} />
+        <LandHeader 
+          onCreateListing={handleCreateListing}
+          onViewRequests={() => setShowAllRequests(true)}
+        />
         <LandFiltersBar
           searchTerm={searchTerm}
           categoryFilter={categoryFilter}
@@ -210,6 +275,12 @@ const AdminLandManagement = () => {
             onEdit={() => {
               setShowEditModal(true);
             }}
+          />
+        )}
+
+        {showAllRequests && (
+          <AllVisitRequestsModal
+            onClose={() => setShowAllRequests(false)}
           />
         )}
       </div>

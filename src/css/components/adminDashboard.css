@@ -172,7 +172,7 @@
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  height: 250px;
+  height: 10px;
   gap: 8px;
   padding: 0 8px;
 }
@@ -553,6 +553,20 @@
 
 .metric-fill.green { background: #22c55e; }
 .metric-fill.yellow { background: var(--accent); }
+
+/* CACHE STATUS CARD */
+.cache-status-card .spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* RESPONSIVE */
 @media (max-width: 1200px) {

@@ -77,10 +77,11 @@ body {
 .btn-primary { background-color: var(--primary); color: var(--text-primary); }
 .btn-success { background-color: var(--accent); color: #1F2937; }
 .btn-danger  { background-color: #dc3545; color: #ffffff; }
+.btn-info    { background-color: #3b82f6; color: #ffffff; }
 .btn-secondary { background-color: rgba(31, 41, 55, 0.12); color: #1F2937; }
 
 /* Optional: subtle button borders for contrast on light surfaces */
-.btn-primary, .btn-success, .btn-danger, .btn-secondary { border: 1px solid var(--border); }
+.btn-primary, .btn-success, .btn-danger, .btn-info, .btn-secondary { border: 1px solid var(--border); }
 
 /* LAYOUT UTILS */
 .container { padding: 20px; }
