@@ -46,6 +46,18 @@
   flex-direction: column;
   gap: 20px;
   padding: 20px;
+  margin-left: 240px; /* Account for fixed sidebar width */
+  transition: margin-left 0.3s ease;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Mobile: no left margin when sidebar is hidden */
+@media (max-width: 900px) {
+  .main-content {
+    margin-left: 0;
+    padding: 16px; /* Slightly reduce padding on mobile */
+  }
 }
 
 .dashboard-header {

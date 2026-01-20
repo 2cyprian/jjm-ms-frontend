@@ -84,7 +84,7 @@ const Login = () => {
       <div className="login-left">
         <div className="login-brand">
           <div className="brand-icon">🖨️</div>
-          <h1>PrintSync</h1>
+          <h1>JJM-GEODATA MANAGEMENT SYSTEM</h1>
           <p>Admin Portal</p>
         </div>
         <div className="login-features">
@@ -103,6 +103,17 @@ const Login = () => {
           <div className="feature">
             <span className="feature-icon">✓</span>
             <span>Real-time Analytics</span>
+          </div>
+            <div className="feature">
+            <span className="feature-icon">✓</span>
+            <span>
+            Rental Management
+            </span>
+            
+          </div>  <div className="feature">
+            <span className="feature-icon">✓</span>
+            <span>Land Management</span>
+            
           </div>
         </div>
       </div>
@@ -165,7 +176,7 @@ const Login = () => {
                 }}
                 className="demo-btn"
               >
-                👨‍💼 Admin
+                 Admin
               </button>
               <button
                 type="button"
@@ -175,7 +186,7 @@ const Login = () => {
                 }}
                 className="demo-btn"
               >
-                👤 Staff
+                 Staff
               </button>
             </div>
           </div>

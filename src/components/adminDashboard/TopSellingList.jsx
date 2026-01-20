@@ -1,12 +1,17 @@
 import React from 'react';
+import { formatDayLabel } from '../../utils/adminHelpers';
 
-const TopSellingList = ({ topSelling, dateFilter }) => {
+const TopSellingList = ({ topSelling, dateFilter, startDate, endDate }) => {
   const getPeriodLabel = (filter) => {
+    if (filter === 'custom' && startDate && endDate) {
+      const start = formatDayLabel(startDate);
+      const end = formatDayLabel(endDate);
+      return `${start} - ${end}`;
+    }
+    
     const labels = {
-      '1d': 'Today',
-      '7d': 'Last 7 Days',
-      '30d': 'Last 30 Days',
-      '90d': 'Last 90 Days'
+      today: 'Today',
+      last_7_days: 'Last 7 Days'
     };
     return labels[filter] || 'Last 7 Days';
   };

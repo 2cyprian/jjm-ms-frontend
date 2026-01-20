@@ -6,7 +6,16 @@ import Button from '../components/Button';
 import Sidebar from '../components/Sidebar';
 import '../css/components/dashboard.css';
 import { formatCurrency } from '../utils/adminHelpers';
-import { Search, Trash2, Download, Printer, X } from 'lucide-react';
+import { Search } from 'lucide-react';
+
+// Import staff dashboard components
+import SalesHeader from '../components/staffDashboard/SalesHeader';
+import PrintQueueSection from '../components/staffDashboard/PrintQueueSection';
+import ServicesGrid from '../components/staffDashboard/ServicesGrid';
+import RetailGrid from '../components/staffDashboard/RetailGrid';
+import SalesCart from '../components/staffDashboard/SalesCart';
+import ServiceConfigModal from '../components/staffDashboard/ServiceConfigModal';
+import PrintConfirmModal from '../components/staffDashboard/PrintConfirmModal';
 
 const StaffDashboard = () => {
   const [cart, setCart] = useState([]);
@@ -16,6 +25,20 @@ const StaffDashboard = () => {
   const [queue, setQueue] = useState([]);
   const [retailItems, setRetailItems] = useState([]);
   const [dailySales, setDailySales] = useState(0);
+  const [transactions, setTransactions] = useState(() => {
+    try {
+      const today = new Date().toDateString();
+      const storedData = localStorage.getItem('todayTransactions');
+      if (storedData) {
+        const { date, txns } = JSON.parse(storedData);
+        // Reset if it's a new day
+        return date === today ? (Array.isArray(txns) ? txns : []) : [];
+      }
+    } catch (err) {
+      console.error('Error loading transactions:', err);
+    }
+    return [];
+  });
   const [orderNumber] = useState(`#${Date.now().toString().slice(-3)}`);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
@@ -174,11 +197,15 @@ const StaffDashboard = () => {
   const addSavedServiceToCart = (savedService) => {
     const cartItem = {
       type: "SERVICE",
-      id: `service_${Date.now()}`,
+      id: `service_${savedService.id}_${Date.now()}`, // Unique cart item ID
       name: savedService.displayName,
-      price: savedService.price,
-      qty: savedService.pages,
-      serviceConfig: savedService
+      price: savedService.price * savedService.pages, // Total price (price per page × pages)
+      qty: 1, // Each service config is 1 cart item
+      serviceConfig: savedService,
+      // Additional metadata for backend tracking
+      service_type: savedService.serviceType,
+      paper_size: savedService.paperSize,
+      paper_type: savedService.paperType
     };
     
     setCart([...cart, cartItem]);
@@ -203,7 +230,7 @@ const StaffDashboard = () => {
     displayName += ` (${servicePages}p)`;
 
     const serviceConfig = {
-      id: Date.now(),
+      id: `service_${Date.now()}`, // Use string ID to avoid confusion with timestamps
       serviceType,
       printType: serviceType === 'print' ? printType : null,
       paperSize,
@@ -364,7 +391,13 @@ const StaffDashboard = () => {
             id: pendingPrintJob?.job_code || 'PRINT_JOB',
             name: itemName,
             quantity: 1,
-            price: price * pages // total cost derived from price per page * pages printed
+            price: price * pages, // total cost derived from price per page * pages printed
+            service_metadata: {
+              service_type: 'print',
+              print_type: confirmPrintType === 'print_bw' ? 'bw' : 'color',
+              pages: pages,
+              job_code: pendingPrintJob?.job_code
+            }
           }
         ]
       };
@@ -382,6 +415,62 @@ const StaffDashboard = () => {
     }
   };
 
+  // Generate and download CSV report
+  const generateCSVReport = () => {
+    if (transactions.length === 0) {
+      toast.warning('No transactions to export');
+      return;
+    }
+
+    let csvContent = 'Transaction Report - ' + new Date().toDateString() + '\n\n';
+    csvContent += 'Transaction Time,Item Name,Type,Quantity,Unit Price (TZS),Line Total (TZS),Payment Method\n';
+
+    let totalRevenue = 0;
+    let productRevenue = 0;
+    let serviceRevenue = 0;
+    let transactionCount = 0;
+
+    transactions.forEach((txn, index) => {
+      transactionCount++;
+      const firstItemInTxn = txn.items.length > 0;
+
+      txn.items.forEach((item, itemIndex) => {
+        const timeStr = itemIndex === 0 ? txn.timestamp : ''; // Only show time on first item
+        csvContent += `${timeStr},${item.name},${item.type},${item.quantity},${item.unitPrice},${item.lineTotal},${txn.paymentMethod}\n`;
+
+        if (item.type === 'PRODUCT') {
+          productRevenue += item.lineTotal;
+        } else if (item.type === 'SERVICE') {
+          serviceRevenue += item.lineTotal;
+        }
+      });
+
+      // Transaction subtotal
+      csvContent += `,,TRANSACTION TOTAL,,,${txn.total},\n\n`;
+      totalRevenue += txn.total;
+    });
+
+    // Daily Summary
+    csvContent += '\n\nDAILY SUMMARY\n';
+    csvContent += `Total Transactions,${transactionCount}\n`;
+    csvContent += `Total Revenue (TZS),${totalRevenue}\n`;
+    csvContent += `Product Revenue (TZS),${productRevenue}\n`;
+    csvContent += `Service Revenue (TZS),${serviceRevenue}\n`;
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `sales-report-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('Report downloaded successfully');
+  };
+
+  // Cancel Printed
   const cancelPrinted = () => {
     setShowConfirmModal(false);
     setPendingPrintJob(null);
@@ -472,13 +561,33 @@ const StaffDashboard = () => {
 
     const payload = {
       payment_method: "CASH",
-      items: cart.map(i => ({
-        id: String(i.id),
-        type: String(i.type || "PRODUCT"),
-        product_id: String(i.id),
-        quantity: Number(i.qty) || 1,
-        price: Number(i.price) || 0
-      }))
+      items: cart.map(i => {
+        const baseItem = {
+          id: String(i.id),
+          type: String(i.type || "PRODUCT"),
+          quantity: Number(i.qty) || 1,
+          price: Number(i.price) || 0,
+          name: i.name // Include name for service tracking
+        };
+        
+        // Add product_id for PRODUCT types
+        if (i.type === "PRODUCT") {
+          baseItem.product_id = String(i.id);
+        }
+        
+        // Add service metadata for SERVICE types
+        if (i.type === "SERVICE" && i.serviceConfig) {
+          baseItem.service_metadata = {
+            service_type: i.serviceConfig.serviceType,
+            print_type: i.serviceConfig.printType,
+            paper_size: i.serviceConfig.paperSize,
+            paper_type: i.serviceConfig.paperType,
+            pages: i.serviceConfig.pages
+          };
+        }
+        
+        return baseItem;
+      })
     };
 
     try {
@@ -491,6 +600,27 @@ const StaffDashboard = () => {
       // Update daily sales with transaction amount
       const totalAmount = calculateTotalNumber();
       updateDailySales(totalAmount);
+      
+      // Save transaction to history
+      const transaction = {
+        id: `txn_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: new Date().toDateString(),
+        items: cart.map(i => ({
+          name: i.name,
+          type: i.type,
+          quantity: i.qty,
+          unitPrice: i.price,
+          lineTotal: i.price * i.qty
+        })),
+        paymentMethod: 'CASH',
+        total: totalAmount
+      };
+      
+      const today = new Date().toDateString();
+      const updatedTransactions = [...transactions, transaction];
+      setTransactions(updatedTransactions);
+      localStorage.setItem('todayTransactions', JSON.stringify({ date: today, txns: updatedTransactions }));
       
       toast.success("Transaction Successful!");
       setCart([]); // Clear Cart
@@ -540,72 +670,22 @@ const StaffDashboard = () => {
 
       <div className="main-content">
         {/* Header with Daily Sales */}
-        <div className="dashboard-header" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 700, margin: 0 }}>Sales & Service</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: '999px' }}>
-              Daily Sales: {formatCurrency(dailySales || 0, 'TZS')}
-            </span>
-          </div>
-        </div>
+        <SalesHeader 
+          dailySales={dailySales} 
+          transactionCount={transactions.length}
+          onExportCSV={generateCSVReport}
+        />
 
         <div className="staff-dashboard-layout">
           {/* LEFT SECTION: SEARCH + GRIDS */}
           <div className="sales-main">
             {/* Print Queue Container */}
-            <div className="print-queue-container">
-              <div className="queue-header">
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Printer size={20} />
-                  Print Queue
-                </h3>
-                <span className="queue-badge">{queue.length}</span>
-              </div>
-
-              
-              {queue.length === 0 ? (
-                <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '2rem 1rem' }}>
-                  No pending jobs
-                </p>
-              ) : (
-                <div className="queue-items">
-                  {queue.map((job) => (
-                    <div key={job.id || job.job_code} className="queue-item">
-                      <div className="queue-item-info">
-                        <div className="queue-item-name">{job.filename || job.name || `Job ${job.job_code}`}
-                          {job.job_code && <span>Order #{job.job_code}</span>}
-                           
-                        </div>
-                        <div className="queue-item-meta">
-                          {job.order_id && (job.total_pages || job.file_size) && <span> • </span>}
-                          {job.total_pages && <span>{job.total_pages} pages</span>}
-                          {job.total_pages && job.file_size && <span> • </span>}
-                          {job.file_size && <span>{job.file_size}</span>}
-                        </div>
-                      </div>
-                      <div className="queue-item-actions">
-                        <button
-                          onClick={() => handleDownload(job.job_code, job.filename)}
-                          disabled={loading}
-                          className="queue-btn download-btn"
-                          title="Download"
-                        >
-                          <Download size={16} />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(job)}
-                          disabled={loading}
-                          className="queue-btn print-btn"
-                          title="Print"
-                        >
-                          <Printer size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <PrintQueueSection 
+              queue={queue}
+              loading={loading}
+              onDownload={handleDownload}
+              onPrint={handlePrint}
+            />
 
             {/* Search/Scan Bar */}
             <form onSubmit={handleScan} className="scan-bar">
@@ -622,500 +702,65 @@ const StaffDashboard = () => {
             </form>
 
             {/* Services Grid */}
-            <div className="quick-section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ margin: 0 }}>Services</h3>
-                <button
-                  onClick={handleOpenServiceModal}
-                  type="button"
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'var(--primary)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: 600
-                  }}
-                >
-                  + Add Service
-                </button>
-              </div>
-              {savedServices.length === 0 ? (
-                <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '1rem' }}>
-                  No service configurations. Click "Add Service" to create one.
-                </p>
-              ) : (
-                <div className="quick-grid">
-                  {savedServices.map(service => (
-                    <div
-                      key={service.id}
-                      style={{
-                        position: 'relative',
-                        border: '1px solid #ddd',
-                        borderRadius: '8px',
-                        padding: '0.75rem',
-                        background: 'white'
-                      }}
-                    >
-                      <button
-                        onClick={() => addSavedServiceToCart(service)}
-                        type="button"
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: 0
-                        }}
-                      >
-                        <div className="quick-item-name" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
-                          {service.displayName}
-                        </div>
-                        <div className="quick-item-price">
-                          {formatCurrency(service.price * service.pages, 'TZS')}
-                        </div>
-                      </button>
-                      <button
-                        onClick={() => deleteSavedService(service.id)}
-                        type="button"
-                        style={{
-                          position: 'absolute',
-                          top: '0.5rem',
-                          right: '0.5rem',
-                          background: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          width: '24px',
-                          height: '24px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '0.75rem'
-                        }}
-                        title="Delete configuration"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ServicesGrid 
+              services={savedServices}
+              onAddService={handleOpenServiceModal}
+              onDeleteService={deleteSavedService}
+              onSelectService={addSavedServiceToCart}
+            />
 
             {/* Retail Grid */}
-            <div className="quick-section">
-              <h3>Retail Items</h3>
-              {retailItems.length === 0 ? (
-                <p style={{ color: 'var(--muted)', textAlign: 'center', padding: '1rem' }}>
-                  No retail items available
-                </p>
-              ) : (
-                <div className="quick-grid">
-                  {retailItems.map(item => (
-                    <button
-                      key={item.id}
-                      className="quick-item"
-                      onClick={() => addQuickItem({ id: item.id, name: item.name, price: item.price })}
-                      type="button"
-                    >
-                      <div className="quick-item-name">{item.name}</div>
-                      <div className="quick-item-price">{formatCurrency(item.price, 'TZS')}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <RetailGrid 
+              items={retailItems}
+              onSelectItem={addQuickItem}
+            />
           </div>
 
           {/* RIGHT SECTION: CART */}
-          <div className="sales-cart">
-            <div className="cart-header">
-              <h3>CART</h3>
-              <span className="order-number">{orderNumber}</span>
-            </div>
-
-            {/* Cart Items */}
-            <div className="cart-items-list">
-              {cart.length === 0 ? (
-                <p style={{ color: 'var(--muted)', textAlign: 'center', paddingTop: '2rem' }}>
-                  Cart is empty
-                </p>
-              ) : (
-                cart.map((item, index) => (
-                  <div key={index} className="cart-item-row">
-                    <div className="cart-item-info">
-                      <div className="cart-item-name">{item.name}</div>
-                      <div className="cart-item-qty">
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.qty - 1)}
-                          className="qty-btn"
-                        >
-                          -
-                        </button>
-                        <span>{item.qty}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.qty + 1)}
-                          className="qty-btn"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className="cart-item-price">
-                      {formatCurrency(item.price * item.qty, 'TZS')}
-                    </div>
-                    <button
-                      onClick={() => removeFromCart(item.id)}
-                      className="cart-remove-btn"
-                      type="button"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Total & Checkout */}
-            <div className="cart-footer">
-              <div className="cart-total">
-                <span>Total:</span>
-                <span className="total-amount">{formatCurrency(calculateTotalNumber(), 'TZS')}</span>
-              </div>
-              <Button
-                onClick={handleCheckout}
-                disabled={loading || cart.length === 0}
-                className="checkout-btn"
-                style={{ width: '100%', padding: '12px', fontSize: '1rem', fontWeight: '700' }}
-              >
-                {loading ? 'Processing...' : 'COMPLETE SALE'}
-              </Button>
-            </div>
-          </div>
+          <SalesCart 
+            items={cart}
+            total={calculateTotalNumber()}
+            loading={loading}
+            onCheckout={handleCheckout}
+            onRemoveItem={removeFromCart}
+            onUpdateQuantity={updateQuantity}
+          />
         </div>
       </div>
 
-      {/* Comprehensive Service Configuration Modal */}
-      {showServiceModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          overflowY: 'auto',
-          padding: '1rem'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '2rem',
-            maxWidth: '500px',
-            width: '100%',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-            maxHeight: '90vh',
-            overflowY: 'auto'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.3rem' }}>Add Service Configuration</h3>
-              <button
-                onClick={() => setShowServiceModal(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            {/* Service Type */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                Service Type
-              </label>
-              <select
-                value={serviceType}
-                onChange={(e) => setServiceType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '1rem'
-                }}
-              >
-                <option value="photocopy">Photocopy</option>
-                <option value="print">Print</option>
-              </select>
-            </div>
-
-            {/* Print Type (only if service is Print) */}
-            {serviceType === 'print' && (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                  Print Type
-                </label>
-                <select
-                  value={printType}
-                  onChange={(e) => setPrintType(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '1rem'
-                  }}
-                >
-                  <option value="bw">Black & White</option>
-                  <option value="color">Color</option>
-                </select>
-              </div>
-            )}
-
-            {/* Paper Size */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                Paper Size
-              </label>
-              <select
-                value={paperSize}
-                onChange={(e) => setPaperSize(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '1rem'
-                }}
-              >
-                <option value="A0">A0</option>
-                <option value="A1">A1</option>
-                <option value="A2">A2</option>
-                <option value="A3">A3</option>
-                <option value="A4">A4</option>
-              </select>
-            </div>
-
-            {/* Paper Type */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                Paper Type
-              </label>
-              <select
-                value={paperType}
-                onChange={(e) => setPaperType(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '1rem'
-                }}
-              >
-                <option value="draft">Draft-Film</option>
-                <option value="gloss">Gloss</option>
-                <option value="plain">Plain</option>
-                <option value="sticker">Sticker</option>
-                <option value="manila">Manila</option>
-              </select>
-            </div>
-
-            {/* Number of Pages */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                Number of Pages
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={servicePages}
-                onChange={(e) => setServicePages(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '1rem'
-                }}
-              />
-            </div>
-
-            {/* Price per Page */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                Price per Page (TZS)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={servicePrice}
-                onChange={(e) => setServicePrice(e.target.value)}
-                placeholder="Enter price per page"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '1rem'
-                }}
-              />
-            </div>
-
-            {/* Total Preview */}
-            {servicePrice && servicePages && (
-              <div style={{
-                backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                border: '1px solid rgba(76, 175, 80, 0.3)',
-                padding: '1rem',
-                borderRadius: '6px',
-                marginBottom: '1.5rem'
-              }}>
-                <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.25rem' }}>Configuration Summary:</div>
-                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', color: '#333' }}>
-                  {serviceType === 'photocopy' ? 'Photocopy' : `Print (${printType.toUpperCase()})`} - {paperSize} {paperType} ({servicePages}p)
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 600 }}>Total:</span>
-                  <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#4CAF50' }}>
-                    {formatCurrency(parseInt(servicePages || 0) * parseFloat(servicePrice || 0), 'TZS')}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={() => setShowServiceModal(false)}
-                style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 600
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveService}
-                style={{
-                  flex: 1,
-                  padding: '0.75rem',
-                  border: 'none',
-                  borderRadius: '4px',
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 600
-                }}
-              >
-                Save Configuration
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Service Configuration Modal */}
+      <ServiceConfigModal 
+        show={showServiceModal}
+        onClose={() => setShowServiceModal(false)}
+        serviceType={serviceType}
+        onServiceTypeChange={setServiceType}
+        printType={printType}
+        onPrintTypeChange={setPrintType}
+        paperSize={paperSize}
+        onPaperSizeChange={setPaperSize}
+        paperType={paperType}
+        onPaperTypeChange={setPaperType}
+        servicePages={servicePages}
+        onServicePagesChange={setServicePages}
+        servicePrice={servicePrice}
+        onServicePriceChange={setServicePrice}
+        onSave={handleSaveService}
+      />
 
       {/* Print Confirmation Modal */}
-      {showConfirmModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100
-        }}>
-          <div style={{ backgroundColor: 'white', borderRadius: 8, padding: '1.5rem', width: '90%', maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Did the document print successfully?</h3>
-              <button onClick={cancelPrinted} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                <X size={22} />
-              </button>
-            </div>
-            <p style={{ color: 'var(--muted)', marginTop: 0 }}>Confirm to deduct stock for this job.</p>
-            {pendingPrintJob && (
-              <div style={{ marginBottom: '1rem', fontSize: '0.95rem' }}>
-                <div style={{ marginBottom: '0.25rem' }}><strong>File:</strong> {pendingPrintJob.filename || pendingPrintJob.job_code}</div>
-                <div style={{ marginBottom: '0.5rem' }}><strong>Queued Pages:</strong> {pendingPrintJob.total_pages}</div>
-                <label style={{ display: 'block', marginBottom: '0.25rem' }}>Pages actually printed</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={printedPages}
-                  onChange={(e) => setPrintedPages(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: 6 }}
-                />
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                      type="radio"
-                      name="printType"
-                      value="print_bw"
-                      checked={confirmPrintType === 'print_bw'}
-                      onChange={() => {
-                        setConfirmPrintType('print_bw');
-                        const matchingService = savedServices.find(s => s.serviceType === 'print' && s.printType === 'bw');
-                        setConfirmPrice(matchingService?.price ? String(matchingService.price) : '');
-                      }}
-                    />
-                    B&W
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                      type="radio"
-                      name="printType"
-                      value="print_color"
-                      checked={confirmPrintType === 'print_color'}
-                      onChange={() => {
-                        setConfirmPrintType('print_color');
-                        const matchingService = savedServices.find(s => s.serviceType === 'print' && s.printType === 'color');
-                        setConfirmPrice(matchingService?.price ? String(matchingService.price) : '');
-                      }}
-                    />
-                    Color
-                  </label>
-                </div>
-                <label style={{ display: 'block', marginTop: '0.75rem', marginBottom: '0.25rem' }}>Price per page (TZS)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={confirmPrice}
-                  onChange={(e) => setConfirmPrice(e.target.value)}
-                  placeholder="Enter price per page"
-                  style={{ width: '100%', padding: '0.5rem', border: '1px solid #ddd', borderRadius: 6 }}
-                />
-                {(confirmPrice && printedPages !== '') && (
-                  <div style={{ marginTop: '0.5rem', background: 'rgba(0,0,0,0.05)', padding: '0.5rem', borderRadius: 6 }}>
-                    <strong>Total:</strong> {formatCurrency((Number(printedPages) || 0) * (Number(confirmPrice) || 0), 'TZS')}
-                  </div>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Button onClick={cancelPrinted} className="secondary" style={{ flex: 1 }}>No</Button>
-              <Button onClick={confirmPrintedSuccess} style={{ flex: 1 }}>Yes, Deduct</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PrintConfirmModal 
+        show={showConfirmModal}
+        onClose={cancelPrinted}
+        onConfirm={confirmPrintedSuccess}
+        job={pendingPrintJob}
+        printedPages={printedPages}
+        onPrintedPagesChange={setPrintedPages}
+        printType={confirmPrintType}
+        onPrintTypeChange={setConfirmPrintType}
+        price={confirmPrice}
+        onPriceChange={setConfirmPrice}
+        savedServices={savedServices}
+      />
     </div>
   );
 };

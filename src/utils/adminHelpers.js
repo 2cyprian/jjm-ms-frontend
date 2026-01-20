@@ -89,6 +89,14 @@ export const formatCurrency = (amount, currency = 'TZS') => {
   }).format(amount);
 };
 
+// Format a YYYY-MM-DD string into a short label (e.g., Jan 15)
+export const formatDayLabel = (dateStr, locale = 'en-US') => {
+  if (!dateStr) return '—';
+  const date = new Date(`${dateStr}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(date);
+};
+
 /**
  * Format recipe type for display
  */

@@ -11,7 +11,7 @@ import AdminInventory from './pages/AdminInventory';
 import AdminDashboard from './pages/AdminDashboard';
 import BranchManagement from './pages/BranchManagement';
 import AdminLandManagement from './pages/AdminLandManagement';
-import RentalSystem from './pages/RentalSystem';
+import RentalManagement from './pages/RentalManagement';
 
 function App() {
   return (
@@ -84,7 +84,7 @@ function App() {
             path="/rentals"
             element={
               <ProtectedRoute allowedRoles={['admin', 'owner', 'manager', 'staff']}>
-                <RentalSystem />
+                <RentalManagement />
               </ProtectedRoute>
             }
           />

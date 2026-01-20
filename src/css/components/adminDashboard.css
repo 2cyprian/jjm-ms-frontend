@@ -24,6 +24,23 @@
   color: var(--muted);
 }
 
+.admin-dashboard-header .header-actions {
+  position: relative;
+}
+
+.date-range-selector {
+  position: relative;
+}
+
+.date-filter-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  fontSize: 0.9rem;
+}
+
 .dashboard-scroll-content {
   flex: 1;
   overflow-y: auto;

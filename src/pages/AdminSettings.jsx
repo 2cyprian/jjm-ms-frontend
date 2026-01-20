@@ -8,20 +8,14 @@ import {
   addPrinter,
   updatePrinter,
   deletePrinter,
-  getRecipes,
-  addRecipe,
-  updateRecipe,
-  deleteRecipe,
   controlPrinter,
 } from '../utils/api';
 import { useToast } from '../utils/toast';
 import {
   validatePrinter,
-  validateRecipe,
   validateSettings,
   exportSettings,
   importSettings,
-  formatRecipeType
 } from '../utils/adminHelpers';
 import Button from '../components/Button';
 import Sidebar from '../components/Sidebar';
@@ -32,26 +26,24 @@ const AdminSettings = () => {
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
-  // General Settings State
+  // General & MVP Settings State
   const [settings, setSettings] = useState({
-    service_form: '',
-    price_bw_a4: 0.05,
-    price_color_a4: 0.15,
-    price_bw_a3: 0.08,
-    price_color_a3: 0.25,
+    business_name: '',
+    logo_url: '',
+    timezone: 'Africa/Nairobi',
+    currency: 'TZS',
+    // User roles are static for MVP
+    printer_server_status: 'Unknown', // Display only
+    printer_auto_start: true,
+    printer_log_retention_days: 30,
+    rental_default_duration_days: 7,
+    rental_grace_period_days: 2,
+    rental_max_active_per_person: 2,
   });
 
   // Printers State
   const [printers, setPrinters] = useState([]);
   const [newPrinter, setNewPrinter] = useState({ name: '', ip_address: '', modal: '' });
-
-  // Recipes State
-  const [recipes, setRecipes] = useState([]);
-  const [newRecipe, setNewRecipe] = useState({
-    service_type: '',
-    raw_material_id: '',
-    amount: 0,
-  });
 
   // Load data on mount
   useEffect(() => {
@@ -62,15 +54,13 @@ const AdminSettings = () => {
     setLoading(true);
     try {
       console.log('Loading admin data from backend...');
-      const [settingsData, printersData, recipesData] = await Promise.all([
+      const [settingsData, printersData] = await Promise.all([
         getSettings(),
         getPrinters(),
-        getRecipes(),
       ]);
       
       setSettings(settingsData);
       setPrinters(printersData);
-      setRecipes(recipesData);
       
       toast.success('Admin data loaded!');
     } catch (err) {
@@ -203,56 +193,12 @@ const AdminSettings = () => {
     }
   };
 
-  // Recipes Handlers
-  const handleRecipeChange = (e) => {
-    const { name, value } = e.target;
-    setNewRecipe({ 
-      ...newRecipe, 
-      [name]: name === 'amount' || name === 'raw_material_id' ? (value ? Number(value) : '') : value 
-    });
-  };
 
-  const handleAddRecipe = async () => {
-    const validation = validateRecipe(newRecipe);
-    if (!validation.isValid) {
-      validation.errors.forEach(error => toast.warning(error));
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const addedRecipe = await addRecipe(newRecipe);
-      setRecipes([...recipes, addedRecipe]);
-      setNewRecipe({ service_type: '', raw_material_id: '', amount: 0 });
-      toast.success('Recipe added successfully!');
-    } catch (err) {
-      console.error('Failed to add recipe:', err);
-      toast.error(err.message || 'Failed to add recipe. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteRecipe = async (id) => {
-    if (window.confirm('Are you sure you want to delete this recipe?')) {
-      setLoading(true);
-      try {
-        await deleteRecipe(id);
-        setRecipes(recipes.filter(r => r.id !== id));
-        toast.success('Recipe deleted successfully');
-      } catch (err) {
-        console.error('Failed to delete recipe:', err);
-        toast.error(err.message || 'Failed to delete recipe. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
 
   // Export/Import Handlers
   const handleExportSettings = () => {
     try {
-      exportSettings(settings, printers, recipes);
+      exportSettings(settings, printers);
       toast.success('Settings exported successfully!');
     } catch (err) {
       toast.error('Failed to export settings');
@@ -271,12 +217,11 @@ const AdminSettings = () => {
       // Update all settings
       setSettings(data.settings);
       setPrinters(data.printers);
-      setRecipes(data.recipes);
       
       // Save to backend
       await Promise.all([
         updateSettings(data.settings),
-        // Note: You may need to add bulk update endpoints for printers and recipes
+        // Note: You may need to add bulk update endpoints for printers
       ]);
       
       toast.success('Settings imported successfully!');
@@ -342,7 +287,7 @@ const AdminSettings = () => {
           borderBottom: '2px solid #ddd',
           flexWrap: 'wrap'
         }}>
-          {['general', 'printers', 'recipes'].map((tab) => (
+          {['general', 'printers'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -360,81 +305,89 @@ const AdminSettings = () => {
             >
               {tab === 'general' && <Settings size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
               {tab === 'printers' && <Printer size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
-              {tab === 'recipes' && <Zap size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
         </div>
 
-        {/* General Settings Tab */}
+
+        {/* General Settings Tab (MVP) */}
         {activeTab === 'general' && (
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem' }}>
-            <h2 style={{ color: 'var(--primary)', marginBottom: '1.5rem' }}>Pricing Configuration</h2>
-            <p style={{ marginTop: '-0.75rem', marginBottom: '1rem', color: '#666' }}>
-              Set per-page prices in TZS for A4 and A3 printing (B&W and Color). These values are used by the Staff Dashboard.
-            </p>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-              gap: '1.5rem',
-              marginBottom: '2rem'
-            }}>
+            <h2 style={{ color: 'var(--primary)', marginBottom: '1.5rem' }}>Organization Basics</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
               <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#333',
-                  textTransform: 'capitalize'
-                }}>
-                  Service Form
-                </label>
-                <input
-                  type="text"
-                  name="service_form"
-                  value={settings.service_form || ''}
-                  onChange={handleSettingsChange}
-                  placeholder="Enter service form"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <label style={{ fontWeight: 600 }}>System / Business Name</label>
+                <input type="text" name="business_name" value={settings.business_name} onChange={handleSettingsChange} placeholder="Business Name" style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
               </div>
-              {Object.entries(settings).filter(([key]) => key !== 'service_form').map(([key, value]) => (
-                <div key={key}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                    fontWeight: '600',
-                    color: '#333',
-                    textTransform: 'capitalize'
-                  }}>
-                    {key.replace(/_/g, ' ')} (TZS per page)
-                  </label>
-                  <input
-                    type="number"
-                    name={key}
-                    value={value}
-                    onChange={handleSettingsChange}
-                    step="0.01"
-                    min="0"
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      border: '1px solid #ddd',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-              ))}
+              <div>
+                <label style={{ fontWeight: 600 }}>Logo (for printouts & reports)</label>
+                <input type="text" name="logo_url" value={settings.logo_url} onChange={handleSettingsChange} placeholder="Logo URL or upload" style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
+                {/* TODO: Add upload button if needed */}
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Timezone</label>
+                <select name="timezone" value={settings.timezone} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }}>
+                  <option value="Africa/Nairobi">Africa/Nairobi (EAT)</option>
+                  <option value="Africa/Dar_es_Salaam">Africa/Dar_es_Salaam</option>
+                  <option value="Africa/Kampala">Africa/Kampala</option>
+                  <option value="Africa/Lagos">Africa/Lagos</option>
+                  <option value="UTC">UTC</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Default Currency</label>
+                <select name="currency" value={settings.currency} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }}>
+                  <option value="TZS">TZS (Tanzanian Shilling)</option>
+                  <option value="KES">KES (Kenyan Shilling)</option>
+                  <option value="UGX">UGX (Ugandan Shilling)</option>
+                  <option value="USD">USD (US Dollar)</option>
+                </select>
+              </div>
             </div>
+
+            <h2 style={{ color: 'var(--primary)', margin: '2rem 0 1.5rem' }}>User Roles</h2>
+            <div style={{ background: '#f9f9f9', borderRadius: '8px', padding: '1.5rem', marginBottom: '2rem' }}>
+              <strong>Roles:</strong> Admin, Staff<br />
+              <strong>Permissions:</strong> Admin (everything), Staff (no delete, no overrides)<br />
+              <span style={{ color: '#888', fontSize: '0.95rem' }}>Roles are enforced across the app. Avoid complex permission matrices for now.</span>
+            </div>
+
+            <h2 style={{ color: 'var(--primary)', margin: '2rem 0 1.5rem' }}>Printer Settings</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{ fontWeight: 600 }}>Printer Server Status</label>
+                <input type="text" name="printer_server_status" value={settings.printer_server_status} disabled style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem', background: '#f5f5f5' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Auto-start Printer Agent</label>
+                <select name="printer_auto_start" value={settings.printer_auto_start ? 'true' : 'false'} onChange={e => setSettings(s => ({ ...s, printer_auto_start: e.target.value === 'true' }))} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }}>
+                  <option value="true">ON</option>
+                  <option value="false">OFF</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Print Log Retention (days)</label>
+                <input type="number" name="printer_log_retention_days" value={settings.printer_log_retention_days} min={1} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
+              </div>
+            </div>
+
+            <h2 style={{ color: 'var(--primary)', margin: '2rem 0 1.5rem' }}>Rental Rules</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              <div>
+                <label style={{ fontWeight: 600 }}>Default Rental Duration (days)</label>
+                <input type="number" name="rental_default_duration_days" value={settings.rental_default_duration_days} min={1} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Grace Period (days)</label>
+                <input type="number" name="rental_grace_period_days" value={settings.rental_grace_period_days} min={0} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
+              </div>
+              <div>
+                <label style={{ fontWeight: 600 }}>Max Active Rentals per Person</label>
+                <input type="number" name="rental_max_active_per_person" value={settings.rental_max_active_per_person} min={1} onChange={handleSettingsChange} style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1rem' }} />
+              </div>
+            </div>
+
             <Button
               onClick={handleSaveSettings}
               disabled={loading}
@@ -585,138 +538,7 @@ const AdminSettings = () => {
           </div>
         )}
 
-        {/* Recipes Tab */}
-        {activeTab === 'recipes' && (
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem' }}>
-            <h2 style={{ color: 'var(--primary)', marginBottom: '1.5rem' }}>Inventory Recipes</h2>
 
-            {/* Add New Recipe */}
-            <div style={{
-              backgroundColor: '#f9f9f9',
-              padding: '1.5rem',
-              borderRadius: '8px',
-              marginBottom: '2rem',
-              border: '2px dashed var(--accent)'
-            }}>
-              <h3 style={{ color: '#333', marginTop: 0 }}>Add New Recipe</h3>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1rem'
-              }}>
-                <input
-                  type="text"
-                  name="service_type"
-                  placeholder="Service Type"
-                  value={newRecipe.service_type}
-                  onChange={handleRecipeChange}
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '1rem',
-                    gridColumn: '1 / -1'
-                  }}
-                />
-                <input
-                  type="number"
-                  name="raw_material_id"
-                  placeholder="Raw Material ID"
-                  value={newRecipe.raw_material_id}
-                  onChange={handleRecipeChange}
-                  min="0"
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '1rem'
-                  }}
-                />
-                <input
-                  type="number"
-                  name="amount"
-                  placeholder="Amount"
-                  value={newRecipe.amount}
-                  onChange={handleRecipeChange}
-                  step="0.01"
-                  min="0"
-                  style={{
-                    padding: '0.75rem',
-                    border: '1px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '1rem'
-                  }}
-                />
-              </div>
-              <Button
-                onClick={handleAddRecipe}
-                disabled={loading}
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              >
-                <Plus size={18} />
-                Add Recipe
-              </Button>
-            </div>
-
-            {/* Recipes List */}
-            <div>
-              <h3 style={{ color: '#333' }}>Configured Recipes</h3>
-              {recipes.length === 0 ? (
-                <p style={{ color: '#999', textAlign: 'center' }}>No recipes configured yet.</p>
-              ) : (
-                <div style={{
-                  overflowX: 'auto',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd'
-                }}>
-                  <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse'
-                  }}>
-                    <thead>
-                      <tr style={{ backgroundColor: 'var(--primary)', color: 'white' }}>
-                        <th style={{ padding: '1rem', textAlign: 'left' }}>Service Type</th>
-                        <th style={{ padding: '1rem', textAlign: 'center' }}>Raw Material ID</th>
-                        <th style={{ padding: '1rem', textAlign: 'center' }}>Amount</th>
-                        <th style={{ padding: '1rem', textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recipes.map((recipe) => (
-                        <tr
-                          key={recipe.id}
-                          style={{
-                            borderBottom: '1px solid #ddd',
-                            backgroundColor: recipe.id % 2 === 0 ? '#f9f9f9' : 'white'
-                          }}
-                        >
-                          <td style={{ padding: '1rem' }}>{recipe.service_type}</td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            {recipe.raw_material_id}
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            {recipe.amount}
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <Button
-                              onClick={() => handleDeleteRecipe(recipe.id)}
-                              disabled={loading}
-                              variant="danger"
-                              style={{ padding: '0.5rem' }}
-                            >
-                              <Trash2 size={18} />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, fetchQueue } from '../utils/api';
+import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, fetchQueue, getActiveRentals, getEquipmentDetail, getRentalIncome, getCacheHealth } from '../utils/api';
+import { formatDayLabel } from '../utils/adminHelpers';
 import api from '../utils/api';
 import '../css/components/adminDashboard.css';
 import { useToast } from '../utils/toast';
@@ -12,11 +13,12 @@ import TopSellingList from '../components/adminDashboard/TopSellingList';
 import RecentOrdersTable from '../components/adminDashboard/RecentOrdersTable';
 import QuickActions from '../components/adminDashboard/QuickActions';
 import SystemStatusCard from '../components/adminDashboard/SystemStatusCard';
-import CacheStatusCard from '../components/adminDashboard/CacheStatusCard';
 import NewOrderModal from '../components/adminDashboard/NewOrderModal';
 import AddStockModal from '../components/adminDashboard/AddStockModal';
 
 const AdminDashboard = () => {
+  // Rental Revenue
+  const [rentalIncome, setRentalIncome] = useState(0);
   const navigate = useNavigate();
   const toast = useToast();
   const [stats, setStats] = useState({
@@ -56,8 +58,17 @@ const AdminDashboard = () => {
   const [totalPrintPages, setTotalPrintPages] = useState(0);
   const [completedPrintJobs, setCompletedPrintJobs] = useState(0);
   // Date filter state
-  const [dateFilter, setDateFilter] = useState('last_7_days'); // today, last_7_days, last_30_days, last_90_days
+  const [dateFilter, setDateFilter] = useState('last_7_days'); // today, last_7_days, last_30_days, last_90_days, custom
+  const [startDate, setStartDate] = useState(''); // for custom range
+  const [endDate, setEndDate] = useState(''); // for custom range
   const [ordersLimit, setOrdersLimit] = useState(10);
+  
+  // Rentals state
+  const [activeRentals, setActiveRentals] = useState([]);
+  const [rentalsLoading, setRentalsLoading] = useState(false);
+  // System status state
+  const [cacheHealth, setCacheHealth] = useState(null);
+  const [systemOnline, setSystemOnline] = useState(true);
 
 
 
@@ -82,10 +93,22 @@ const AdminDashboard = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [dateFilter, ordersLimit]); // Reload when filters change
+  }, [dateFilter, startDate, endDate, ordersLimit]); // Reload when filters change
 
   const handleDateFilterChange = (newFilter) => {
     setDateFilter(newFilter);
+    // Clear custom dates when switching to presets
+    if (newFilter !== 'custom') {
+      setStartDate('');
+      setEndDate('');
+    }
+    // Data will reload automatically via useEffect dependency
+  };
+
+  const handleCustomRangeApply = (start, end) => {
+    setStartDate(start);
+    setEndDate(end);
+    setDateFilter('custom');
     // Data will reload automatically via useEffect dependency
   };
 
@@ -106,15 +129,42 @@ const AdminDashboard = () => {
         return 0;
       };
       
+      // Build date params for API calls
+      const dateParams = dateFilter === 'custom' && startDate && endDate
+        ? { date_range: 'custom', start_date: startDate, end_date: endDate }
+        : { date_range: dateFilter };
+
       // Load each endpoint independently with fallback data
-      const [statsData, revenueRes, topProductsRes, ordersRes, jobsRes] = await Promise.allSettled([
-        getDashboardStats(dateFilter),
-        getRevenueData(dateFilter),
-        getTopSellingProducts(dateFilter),
+      const [statsData, revenueRes, topProductsRes, ordersRes, jobsRes, rentalsRes, rentalIncomeRes, cacheHealthRes] = await Promise.allSettled([
+        getDashboardStats(dateParams),
+        getRevenueData(dateParams),
+        getTopSellingProducts(dateParams),
         getRecentOrders(ordersLimit),
         // Fetch print jobs from queue - returns array directly
-        fetchQueue()
+        fetchQueue(),
+        // Fetch active rentals
+        getActiveRentals(),
+        // Fetch rental income
+        getRentalIncome(),
+        // Fetch cache health
+        getCacheHealth()
       ]);
+      
+      // Set rental income robustly
+      let income = 0;
+      if (rentalIncomeRes && rentalIncomeRes.status === 'fulfilled') {
+        const rawIncome = rentalIncomeRes.value;
+        income = rawIncome?.rental_income ?? rawIncome?.total ?? rawIncome?.amount ?? rawIncome ?? 0;
+        if (typeof income !== 'number' || !isFinite(income)) {
+          income = Number(income);
+        }
+        if (!isFinite(income) || isNaN(income)) {
+          income = 0;
+        }
+      } else {
+        console.warn('[DASHBOARD] Rental income request failed:', rentalIncomeRes?.reason);
+      }
+      setRentalIncome(income);
 
 
 
@@ -122,17 +172,17 @@ const AdminDashboard = () => {
       if (statsData.status === 'fulfilled') {
           const data = statsData.value || {};
           const statsToSet = {
-            totalRevenue: toNumber(data.total_revenue ?? data.total_sales),
-            revenueChange: toNumber(data.revenue_change),
-            totalOrders: toNumber(data.total_orders),
+            totalRevenue: toNumber(data.total_revenue ?? data.total_sales ?? data.revenue),
+            revenueChange: toNumber(data.revenue_change ?? data.change),
+            totalOrders: toNumber(data.total_orders ?? data.orders),
             ordersChange: toNumber(data.orders_change),
-            lowStockItems: toNumber(data.low_stock_items),
-            dailyFootfall: toNumber(data.daily_footfall),
+            lowStockItems: toNumber(data.low_stock_items ?? data.low_stock),
+            dailyFootfall: toNumber(data.daily_footfall ?? data.footfall),
             footfallChange: toNumber(data.footfall_change)
           };
           setStats(statsToSet);
       } else {
-        console.warn('Stats endpoint failed:', statsData.reason);
+        console.warn('[DASHBOARD] Stats endpoint failed:', statsData.reason);
       }
 
       // Set revenue data with fallback and array guard
@@ -151,10 +201,13 @@ const AdminDashboard = () => {
                   ? revenuePayload.points
                   : [];
 
-        const data = revenueArray.map(d => ({
-          day: d.day || d.date || d.label || d.period || '—',
-          value: toNumber(d.value ?? d.revenue ?? d.amount ?? d.total)
-        }));
+        const data = revenueArray.map(d => {
+          const dayKey = d.date || d.day || d.label || d.period || null;
+          return {
+            day: formatDayLabel(dayKey),
+            value: toNumber(d.value ?? d.revenue ?? d.amount ?? d.total)
+          };
+        });
         setRevenueData(data);
       } else {
         console.warn('Revenue endpoint failed:', revenueRes.reason);
@@ -231,6 +284,42 @@ const AdminDashboard = () => {
         setActivePrintJobs(0);
         setTotalPrintPages(0);
         setCompletedPrintJobs(0);
+      }
+
+      // Set cache health with fallback
+      if (cacheHealthRes.status === 'fulfilled') {
+        const healthData = cacheHealthRes.value;
+        setCacheHealth(healthData);
+        setSystemOnline(healthData?.connected ?? true);
+      } else {
+        console.warn('Cache health endpoint failed:', cacheHealthRes.reason);
+        setCacheHealth(null);
+        setSystemOnline(false);
+      }
+
+      // Set active rentals with fallback - fetch only first 5
+      if (rentalsRes.status === 'fulfilled') {
+        let rentalsList = Array.isArray(rentalsRes.value) ? rentalsRes.value : [];
+        
+        // Fetch equipment details for each rental
+        rentalsList = await Promise.all(
+          rentalsList.slice(0, 5).map(async (rental) => {
+            if (rental.equipment_id && !rental.equipment) {
+              try {
+                const equipmentData = await getEquipmentDetail(rental.equipment_id);
+                return { ...rental, equipment: equipmentData };
+              } catch (err) {
+                return rental;
+              }
+            }
+            return rental;
+          })
+        );
+        
+        setActiveRentals(rentalsList);
+      } else {
+        console.warn('Active rentals endpoint failed:', rentalsRes.reason);
+        setActiveRentals([]);
       }
     } catch (error) {
       console.error('❌ Error loading dashboard data:', error);
@@ -356,7 +445,10 @@ const AdminDashboard = () => {
       <div className="main-content">
         <DashboardHeader 
           dateFilter={dateFilter} 
-          onDateFilterChange={handleDateFilterChange} 
+          onDateFilterChange={handleDateFilterChange}
+          startDate={startDate}
+          endDate={endDate}
+          onCustomRangeApply={handleCustomRangeApply}
         />
 
         {refreshing && (
@@ -373,7 +465,7 @@ const AdminDashboard = () => {
             activePrintJobs={activePrintJobs}
             printJobsCount={printJobsCount}
             totalPrintPages={totalPrintPages}
-            completedPrintJobs={completedPrintJobs}
+            rentalIncome={rentalIncome}
           />
 
           {/* Charts Section */}
@@ -381,11 +473,15 @@ const AdminDashboard = () => {
             <RevenueChart 
               revenueData={revenueData} 
               dateFilter={dateFilter}
+              startDate={startDate}
+              endDate={endDate}
             />
 
             <TopSellingList 
               topSelling={topSelling} 
               dateFilter={dateFilter}
+              startDate={startDate}
+              endDate={endDate}
             />
           </div>
 
@@ -395,15 +491,20 @@ const AdminDashboard = () => {
               recentOrders={recentOrders} 
               ordersLimit={ordersLimit}
               onLimitChange={setOrdersLimit}
+              activeRentals={activeRentals}
             />
 
             {/* Quick Actions & System Status */}
             <div className="side-panels">
               <QuickActions onNewOrder={openNewOrderModal} onAddStock={openAddStockModal} />
-
-              <CacheStatusCard />
               
-              <SystemStatusCard />
+              <SystemStatusCard 
+                isOnline={systemOnline}
+                printQueueCount={activePrintJobs}
+                totalPrintPages={totalPrintPages}
+                cacheHealth={cacheHealth}
+                loading={loading}
+              />
             </div>
           </div>
         </div>

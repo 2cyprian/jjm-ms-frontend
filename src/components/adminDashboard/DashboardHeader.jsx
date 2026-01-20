@@ -1,15 +1,7 @@
 import React from 'react';
+import DateRangeSelector from './DateRangeSelector';
 
-const DashboardHeader = ({ dateFilter, onDateFilterChange }) => {
-  const filterOptions = [
-    { value: 'today', label: 'Today' },
-    { value: 'last_7_days', label: 'Last 7 Days' },
-    { value: 'last_30_days', label: 'Last 30 Days' },
-    { value: 'last_90_days', label: 'Last 90 Days' }
-  ];
-
-  const currentFilterLabel = filterOptions.find(opt => opt.value === dateFilter)?.label || 'Last 7 Days';
-
+const DashboardHeader = ({ dateFilter, onDateFilterChange, startDate, endDate, onCustomRangeApply }) => {
   return (
     <div className="admin-dashboard-header">
       <div>
@@ -29,34 +21,14 @@ const DashboardHeader = ({ dateFilter, onDateFilterChange }) => {
           </span>
         </p>
       </div>
-      <div className="header-actions">
-        <div className="search-box">
-          <span className="search-icon">🔍</span>
-          <input type="text" placeholder="Search orders, items..." />
-        </div>
-        <button className="icon-btn">
-          <span className="notification-dot"></span>
-          🔔
-        </button>
-        <select 
-          className="filter-btn" 
-          value={dateFilter} 
-          onChange={(e) => onDateFilterChange(e.target.value)}
-          style={{
-            padding: '0.5rem 1rem',
-            border: '1px solid #ddd',
-            borderRadius: '6px',
-            background: 'white',
-            cursor: 'pointer',
-            fontSize: '0.9rem'
-          }}
-        >
-          {filterOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              📅 {option.label}
-            </option>
-          ))}
-        </select>
+      <div className="header-actions" style={{ position: 'relative' }}>
+        <DateRangeSelector 
+          dateFilter={dateFilter}
+          onDateFilterChange={onDateFilterChange}
+          startDate={startDate}
+          endDate={endDate}
+          onCustomRangeApply={onCustomRangeApply}
+        />
       </div>
     </div>
   );

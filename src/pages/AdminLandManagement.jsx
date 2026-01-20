@@ -66,7 +66,7 @@ const AdminLandManagement = () => {
 
     // Availability filter
     if (availabilityFilter !== 'all') {
-      filtered = filtered.filter(listing => listing.offers.availability === availabilityFilter);
+      filtered = filtered.filter(listing => listing.offers?.availability === availabilityFilter);
     }
 
     // Region filter

@@ -1,16 +1,20 @@
 import React from 'react';
-import { formatCurrency } from '../../utils/adminHelpers';
+import { formatCurrency, formatDayLabel } from '../../utils/adminHelpers';
 
-const RevenueChart = ({ revenueData, dateFilter }) => {
+const RevenueChart = ({ revenueData, dateFilter, startDate, endDate }) => {
   // Calculate max for visual scaling only - not data transformation
   const maxRevenue = revenueData.length > 0 ? Math.max(...revenueData.map(d => d.value)) : 1;
 
   const getPeriodLabel = (filter) => {
+    if (filter === 'custom' && startDate && endDate) {
+      const start = formatDayLabel(startDate);
+      const end = formatDayLabel(endDate);
+      return `${start} - ${end}`;
+    }
+    
     const labels = {
-      '1d': 'Today',
-      '7d': 'Last 7 Days',
-      '30d': 'Last 30 Days',
-      '90d': 'Last 90 Days'
+      today: 'Today',
+      last_7_days: 'Last 7 Days'
     };
     return labels[filter] || 'Last 7 Days';
   };
@@ -18,7 +22,7 @@ const RevenueChart = ({ revenueData, dateFilter }) => {
   const hasData = revenueData.length > 0;
   const width = 100;
   const height = 200;
-  const pointRadius = 4;
+  const pointRadius = 1.5;
   const safeMax = Math.max(maxRevenue, 1);
   const step = hasData && revenueData.length > 1 ? width / (revenueData.length - 1) : 0;
   
@@ -46,7 +50,7 @@ const RevenueChart = ({ revenueData, dateFilter }) => {
             <path
               fill="none"
               stroke="#4f46e5"
-              strokeWidth="2.5"
+              strokeWidth="0.5"
               d={linePath}
               strokeLinejoin="round"
               strokeLinecap="round"

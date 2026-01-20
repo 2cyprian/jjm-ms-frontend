@@ -10,11 +10,11 @@ const LandingPage = () => {
       <div className="landing-content">
         <div className="landing-hero">
           <div className="hero-icon">🖨️</div>
-          <h1>PrintSync</h1>
-          <p className="hero-tagline">Your Complete Print Management Solution</p>
+          <h1>JJM GEODATA MANAGEMENT SYSTEM</h1>
+          <p className="hero-tagline">Complete Management Solution</p>
           <p className="hero-description">
             Streamline your printing operations with real-time job tracking, 
-            inventory management, and seamless customer experience.
+            inventory management, Rental Management, Land Management and Seamless customer experience
           </p>
           
           <div className="landing-actions">

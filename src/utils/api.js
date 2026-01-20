@@ -189,39 +189,82 @@ export const deleteProduct = async (id) => {
 };
 
 // Dashboard API
-export const getDashboardStats = async (dateRange = 'last_7_days') => {
-  const response = await api.get(`/dashboard/dashboard/stats?date_range=${dateRange}`);
+export const getDashboardStats = async (dateParams = {}) => {
+  const params = new URLSearchParams();
+  
+  if (dateParams.date_range) {
+    params.append('date_range', dateParams.date_range);
+  }
+  if (dateParams.start_date) {
+    params.append('start_date', dateParams.start_date);
+  }
+  if (dateParams.end_date) {
+    params.append('end_date', dateParams.end_date);
+  }
+  
+  const response = await api.get(`/dashboard/stats?${params}`);
   return response.data;
 };
 
-export const getRevenueData = async (dateRange = 'last_7_days') => {
-  const response = await api.get(`/dashboard/dashboard/revenue?date_range=${dateRange}`);
+export const getRevenueData = async (dateParams = {}) => {
+  const params = new URLSearchParams();
+  
+  if (dateParams.date_range) {
+    params.append('date_range', dateParams.date_range);
+  }
+  if (dateParams.start_date) {
+    params.append('start_date', dateParams.start_date);
+  }
+  if (dateParams.end_date) {
+    params.append('end_date', dateParams.end_date);
+  }
+  
+  const response = await api.get(`/dashboard/revenue?${params}`);
   return response.data;
 };
 
-export const getTopSellingProducts = async (dateRange = 'last_7_days', limit = 5) => {
-  const response = await api.get(`/dashboard/dashboard/top-products?date_range=${dateRange}&limit=${limit}`);
+export const getTopSellingProducts = async (dateParams = {}, limit = 5) => {
+  const params = new URLSearchParams();
+  
+  if (dateParams.date_range) {
+    params.append('date_range', dateParams.date_range);
+  }
+  if (dateParams.start_date) {
+    params.append('start_date', dateParams.start_date);
+  }
+  if (dateParams.end_date) {
+    params.append('end_date', dateParams.end_date);
+  }
+  params.append('limit', limit);
+  
+  const response = await api.get(`/dashboard/top-products?${params}`);
   return response.data;
 };
 
 export const getRecentOrders = async (limit = 10) => {
-  const response = await api.get(`/dashboard/dashboard/recent-orders?limit=${limit}`);
+  const response = await api.get(`/dashboard/recent-orders?limit=${limit}`);
+  return response.data;
+};
+
+// Rental Revenue API
+export const getRentalIncome = async () => {
+  const response = await api.get('/dashboard/rental-income');
   return response.data;
 };
 
 // Dashboard Cache Management API
 export const getCacheHealth = async () => {
-  const response = await api.get('/dashboard/dashboard/cache/health');
+  const response = await api.get('/health');
   return response.data;
 };
 
 export const getCacheStats = async () => {
-  const response = await api.get('/dashboard/dashboard/cache/stats');
+  const response = await api.get('/dashboard/cache/stats');
   return response.data;
 };
 
 export const invalidateCache = async () => {
-  const response = await api.post('/dashboard/dashboard/cache/invalidate');
+  const response = await api.post('/dashboard/cache/invalidate');
   return response.data;
 };
 
@@ -520,6 +563,145 @@ export const getVisitRequest = async (requestId) => {
 // Update visit request status
 export const updateVisitRequestStatus = async (requestId, newStatus) => {
   const response = await api.put(`/lands/visit-requests/${requestId}/status?new_status=${newStatus}`);
+  return response.data;
+};
+
+// ============================================
+// RENTAL MANAGEMENT API ENDPOINTS
+// ============================================
+
+// PERSONS (Renters) - Actors
+export const getPersons = async () => {
+  const response = await api.get('/rentals/persons');
+  return response.data;
+};
+
+export const getPerson = async (personId) => {
+  const response = await api.get(`/rentals/persons/${personId}`);
+  return response.data;
+};
+
+export const createPerson = async (personData) => {
+  const response = await api.post('/rentals/persons', personData);
+  return response.data;
+};
+
+export const updatePerson = async (personId, personData) => {
+  const response = await api.put(`/rentals/persons/${personId}`, personData);
+  return response.data;
+};
+
+export const deletePerson = async (personId, hardDelete = false) => {
+  const params = hardDelete ? '?hard_delete=true' : '';
+  const response = await api.delete(`/rentals/persons/${personId}${params}`);
+  return response.data;
+};
+
+// SPONSORS (Financial Backers) - Guarantors
+export const getSponsors = async () => {
+  const response = await api.get('/rentals/sponsors');
+  return response.data;
+};
+
+export const getSponsor = async (sponsorId) => {
+  const response = await api.get(`/rentals/sponsors/${sponsorId}`);
+  return response.data;
+};
+
+export const createSponsor = async (sponsorData) => {
+  const response = await api.post('/rentals/sponsors', sponsorData);
+  return response.data;
+};
+
+export const updateSponsor = async (sponsorId, sponsorData) => {
+  const response = await api.put(`/rentals/sponsors/${sponsorId}`, sponsorData);
+  return response.data;
+};
+
+export const deleteSponsor = async (sponsorId, hardDelete = false) => {
+  const params = hardDelete ? '?hard_delete=true' : '';
+  const response = await api.delete(`/rentals/sponsors/${sponsorId}${params}`);
+  return response.data;
+};
+
+// EQUIPMENT (Assets) - Resources
+export const getEquipment = async () => {
+  const response = await api.get('/rentals/equipment');
+  return response.data;
+};
+
+export const getEquipmentDetail = async (equipmentId) => {
+  const response = await api.get(`/rentals/equipment/${equipmentId}`);
+  return response.data;
+};
+
+export const createEquipment = async (equipmentData) => {
+  const response = await api.post('/rentals/equipment', equipmentData);
+  return response.data;
+};
+export const deleteEquipment = async (equipmentId, force = false) => {
+  const params = force ? '?force=true' : '';
+  const response = await api.delete(`/rentals/equipment/${equipmentId}${params}`);
+  return response.data;
+};
+
+
+export const updateEquipment = async (equipmentId, equipmentData) => {
+  const response = await api.put(`/rentals/equipment/${equipmentId}`, equipmentData);
+  return response.data;
+};
+
+// RENTALS (Contracts) - Core lifecycle
+export const getRentals = async () => {
+  const response = await api.get('/rentals/rentals');
+  return response.data;
+};
+
+export const getActiveRentals = async () => {
+  const response = await api.get('/rentals/rentals/active');
+  return response.data;
+};
+
+export const getOverdueRentals = async () => {
+  const response = await api.get('/rentals/rentals/overdue');
+  return response.data;
+};
+
+export const getRentalDetail = async (rentalId) => {
+  const response = await api.get(`/rentals/rentals/${rentalId}`);
+  return response.data;
+};
+
+export const createRental = async (rentalData) => {
+  const response = await api.post('/rentals/rentals', rentalData);
+  return response.data;
+};
+
+export const updateRental = async (rentalId, rentalData) => {
+  const response = await api.put(`/rentals/rentals/${rentalId}`, rentalData);
+  return response.data;
+};
+
+// RETURNS - Equipment return workflow
+export const returnEquipment = async (rentalId, returnData) => {
+  const response = await api.post(`/rentals/rentals/${rentalId}/return`, returnData);
+  return response.data;
+};
+
+// OVERDUE REASONS - Dispute resolution
+export const recordOverdueReason = async (rentalId, reasonData) => {
+  const response = await api.post(`/rentals/rentals/${rentalId}/overdue-reason`, reasonData);
+  return response.data;
+};
+
+// DASHBOARD & STATS - Insights
+export const getRentalsSummary = async () => {
+  const response = await api.get('/rentals/rentals/stats/summary');
+  return response.data;
+};
+
+export const getTopEquipment = async () => {
+  const response = await api.get('/rentals/rentals/stats/top-equipment');
   return response.data;
 };
 
