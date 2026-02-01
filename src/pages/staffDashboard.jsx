@@ -5,7 +5,7 @@ import CartItem from '../components/CartItem';
 import Button from '../components/Button';
 import Sidebar from '../components/Sidebar';
 import '../css/components/dashboard.css';
-import { formatCurrency } from '../utils/adminHelpers';
+import { formatCurrency, parseMoneyInput } from '../utils/adminHelpers';
 import { Search } from 'lucide-react';
 
 // Import staff dashboard components
@@ -195,27 +195,43 @@ const StaffDashboard = () => {
 
   // Add saved service to cart
   const addSavedServiceToCart = (savedService) => {
-    const cartItem = {
-      type: "SERVICE",
-      id: `service_${savedService.id}_${Date.now()}`, // Unique cart item ID
-      name: savedService.displayName,
-      price: savedService.price * savedService.pages, // Total price (price per page × pages)
-      qty: 1, // Each service config is 1 cart item
-      serviceConfig: savedService,
-      // Additional metadata for backend tracking
-      service_type: savedService.serviceType,
-      paper_size: savedService.paperSize,
-      paper_type: savedService.paperType
-    };
+    // Check if same service already exists in cart (match by configuration)
+    const existing = cart.find(c => 
+      c.type === "SERVICE" && 
+      c.serviceConfig?.id === savedService.id
+    );
     
-    setCart([...cart, cartItem]);
-    toast.success(`${savedService.displayName} added to cart`);
+    if (existing) {
+      // Increase quantity (pages) for existing service
+      existing.qty += savedService.pages;
+      setCart([...cart]);
+      toast.success(`${savedService.displayName} quantity increased`);
+    } else {
+      // Add new service to cart
+      const cartItem = {
+        type: "SERVICE",
+        id: `service_${savedService.id}`, // Use consistent ID without timestamp
+        name: savedService.displayName,
+        price: savedService.price, // Price per page (NOT multiplied by pages)
+        qty: savedService.pages, // Quantity = number of pages
+        serviceConfig: savedService,
+        // Additional metadata for backend tracking
+        service_type: savedService.serviceType,
+        paper_size: savedService.paperSize,
+        paper_type: savedService.paperType
+      };
+      
+      setCart([...cart, cartItem]);
+      toast.success(`${savedService.displayName} added to cart`);
+    }
+    
     if (scanInputRef.current) scanInputRef.current.focus();
   };
 
   // Save comprehensive service configuration
   const handleSaveService = () => {
-    if (!servicePrice || parseFloat(servicePrice) <= 0) {
+    const parsedPrice = parseFloat(parseMoneyInput(servicePrice));
+    if (!parsedPrice || parsedPrice <= 0) {
       toast.error("Please enter a valid price per page");
       return;
     }
@@ -236,7 +252,7 @@ const StaffDashboard = () => {
       paperSize,
       paperType,
       pages: parseInt(servicePages),
-      price: parseFloat(servicePrice),
+      price: parsedPrice,
       displayName
     };
 

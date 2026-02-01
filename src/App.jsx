@@ -4,6 +4,7 @@ import { ToastProvider } from './utils/toast';
 import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import Forbidden from './pages/Forbidden';
 import CustomerUpload from './pages/CustomerUpload';
 import StaffDashboard from './pages/staffDashboard';
 import AdminSettings from './pages/AdminSettings';
@@ -21,6 +22,7 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forbidden" element={<Forbidden />} />
           <Route path="/customer" element={<CustomerUpload />} />
           
           {/* Protected routes - require authentication */}

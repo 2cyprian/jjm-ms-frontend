@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../Button';
 import Spinner from '../Spinner';
-import { getRentalDetail, returnEquipment, getEquipmentDetail } from '../../utils/api';
+import { getRentalDetail, returnEquipment, getEquipmentDetail, updateEquipment } from '../../utils/api';
 import { useToast } from '../../utils/toast';
 import '../../css/components/rentalForms.css';
 
-const RentalDetail = ({ rentalId, onBack }) => {
+const RentalDetail = ({ rentalId, onBack, onReturn }) => {
   const [rental, setRental] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showReturnForm, setShowReturnForm] = useState(false);
@@ -61,6 +61,23 @@ const RentalDetail = ({ rentalId, onBack }) => {
       if (returnData.overdue_reason) submitData.overdue_reason = returnData.overdue_reason;
 
       await returnEquipment(rentalId, submitData);
+      
+      // Update equipment quantity - add back the rented quantity
+      if (rental?.equipment_id && rental?.quantity) {
+        try {
+          const equipmentDetail = await getEquipmentDetail(rental.equipment_id);
+          const currentQty = equipmentDetail.qty || 0;
+          const newQty = currentQty + rental.quantity;
+          
+          await updateEquipment(rental.equipment_id, {
+            qty: newQty
+          });
+        } catch (err) {
+          console.error('Failed to update equipment quantity:', err);
+          // Don't fail the return just because quantity update failed
+        }
+      }
+      
       toast.success('Equipment returned successfully');
       onBack();
     } catch (err) {
@@ -96,6 +113,9 @@ const RentalDetail = ({ rentalId, onBack }) => {
   if (loading) return <Spinner />;
   if (!rental) return <div style={{ padding: '24px', color: '#9ca3af' }}>Rental not found</div>;
 
+  console.log('Rental status:', rental.status);
+  console.log('Show return form:', showReturnForm);
+
   const person = rental.person || {};
   const equipment = rental.equipment || {};
   const customer_name = rental.customer_name || person.full_name || 'N/A';
@@ -108,7 +128,7 @@ const RentalDetail = ({ rentalId, onBack }) => {
     <div style={{ maxWidth: '900px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div>
             <h2 style={{ margin: '0 0 8px 0', color: '#1F2937' }}>Rental #{rental.id}</h2>
             <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>
@@ -164,8 +184,106 @@ const RentalDetail = ({ rentalId, onBack }) => {
             {equipment.serial_number && <div>Serial: {equipment.serial_number}</div>}
             {equipment.condition && <div>Condition: {equipment.condition}</div>}
           </div>
+          {equipment.images && equipment.images.length > 0 && (
+            <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px' }}>
+              {equipment.images.map((img, idx) => (
+                <div key={idx} style={{ borderRadius: '4px', overflow: 'hidden', border: '1px solid #d1d5db' }}>
+                  <img
+                    src={typeof img === 'string' ? img : img.url}
+                    alt={`Equipment ${idx + 1}`}
+                    style={{ width: '100%', height: '80px', objectFit: 'cover' }}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Return Form */}
+      {showReturnForm && rental.status !== 'returned' && (
+        <div style={{ padding: '20px', backgroundColor: '#fef3c7', borderRadius: '6px', border: '2px solid #fcd34d', marginBottom: '24px' }}>
+          <h3 style={{ marginTop: 0, color: '#92400e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ↩ Return Equipment
+          </h3>
+
+          <div className="rental-form-grid">
+            <div className="rental-form-field">
+              <label className="rental-form-label">
+                Return Date <span className="required">*</span>
+              </label>
+              <input
+                type="date"
+                value={returnData.actual_return_date}
+                onChange={(e) => setReturnData({ ...returnData, actual_return_date: e.target.value })}
+                className="rental-form-input"
+              />
+            </div>
+
+            <div className="rental-form-field">
+              <label className="rental-form-label">Condition</label>
+              <select
+                value={returnData.condition_on_return}
+                onChange={(e) => setReturnData({ ...returnData, condition_on_return: e.target.value })}
+                className="rental-form-select"
+              >
+                {conditions.map((cond) => (
+                  <option key={cond} value={cond}>
+                    {cond}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="rental-form-field">
+            <label className="rental-form-label">Damage Notes</label>
+            <textarea
+              value={returnData.damage_notes}
+              onChange={(e) => setReturnData({ ...returnData, damage_notes: e.target.value })}
+              placeholder="Describe any damage if applicable"
+              className="rental-form-textarea"
+            />
+          </div>
+
+          {new Date(returnData.actual_return_date) > new Date(rental.expected_return_date) && (
+            <div>
+              <div className="rental-form-field">
+                <label className="rental-form-label">Overdue Reason</label>
+                <select
+                  value={returnData.overdue_reason}
+                  onChange={(e) => setReturnData({ ...returnData, overdue_reason: e.target.value })}
+                  className="rental-form-select"
+                >
+                  <option value="">Select reason</option>
+                  {overdueReasons.map((reason) => (
+                    <option key={reason} value={reason}>
+                      {reason}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
+            <Button
+              variant="secondary"
+              onClick={() => setShowReturnForm(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleReturnSubmit}
+              disabled={submitting}
+            >
+              {submitting ? 'Processing...' : 'Confirm Return'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Rental Period */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
@@ -253,102 +371,18 @@ const RentalDetail = ({ rentalId, onBack }) => {
         </div>
       )}
 
-      {/* Return Form */}
-      {showReturnForm && rental.status === 'active' && (
-        <div style={{ padding: '20px', backgroundColor: '#fef3c7', borderRadius: '6px', border: '1px solid #fcd34d', marginBottom: '24px' }}>
-          <h3 style={{ marginTop: 0, color: '#92400e' }}>Return Equipment</h3>
-
-          <div className="rental-form-grid">
-            <div className="rental-form-field">
-              <label className="rental-form-label">
-                Return Date <span className="required">*</span>
-              </label>
-              <input
-                type="date"
-                value={returnData.actual_return_date}
-                onChange={(e) => setReturnData({ ...returnData, actual_return_date: e.target.value })}
-                className="rental-form-input"
-              />
-            </div>
-
-            <div className="rental-form-field">
-              <label className="rental-form-label">Condition</label>
-              <select
-                value={returnData.condition_on_return}
-                onChange={(e) => setReturnData({ ...returnData, condition_on_return: e.target.value })}
-                className="rental-form-select"
-              >
-                {conditions.map((cond) => (
-                  <option key={cond} value={cond}>
-                    {cond}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="rental-form-field">
-            <label className="rental-form-label">Damage Notes</label>
-            <textarea
-              value={returnData.damage_notes}
-              onChange={(e) => setReturnData({ ...returnData, damage_notes: e.target.value })}
-              placeholder="Describe any damage if applicable"
-              className="rental-form-textarea"
-            />
-          </div>
-
-          {new Date(returnData.actual_return_date) > new Date(rental.expected_return_date) && (
-            <div>
-              <div className="rental-form-field">
-                <label className="rental-form-label">Overdue Reason</label>
-                <select
-                  value={returnData.overdue_reason}
-                  onChange={(e) => setReturnData({ ...returnData, overdue_reason: e.target.value })}
-                  className="rental-form-select"
-                >
-                  <option value="">Select reason</option>
-                  {overdueReasons.map((reason) => (
-                    <option key={reason} value={reason}>
-                      {reason}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '16px' }}>
-            <Button
-              variant="secondary"
-              onClick={() => setShowReturnForm(false)}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleReturnSubmit}
-              disabled={submitting}
-            >
-              {submitting ? 'Processing...' : 'Confirm Return'}
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between', alignItems: 'center' }}>
         <Button variant="secondary" onClick={onBack}>
-          Back to Rentals
+          ← Back to Rentals
         </Button>
-
-        {rental.status === 'active' && !showReturnForm && (
+        
+        {rental.status !== 'returned' && !showReturnForm && (
           <Button
             variant="primary"
             onClick={() => setShowReturnForm(true)}
-            style={{ backgroundColor: '#10b981' }}
           >
-            Return Equipment
+            ↩ Return Equipment
           </Button>
         )}
       </div>

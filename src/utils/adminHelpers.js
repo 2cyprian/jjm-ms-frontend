@@ -233,3 +233,107 @@ export const generatePrinterId = () => {
 export const generateRecipeId = () => {
   return `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+/**
+ * Printer Logs helpers for modularized table
+ */
+export const getLogStatusStyle = (status) => {
+  const s = (status || '').toUpperCase();
+  if (s === 'PRINTED') return { bg: '#bbf7d0', color: '#065f46' };
+  if (s === 'FAILED') return { bg: '#fecaca', color: '#991b1b' };
+  if (s === 'CANCELED' || s === 'CANCELLED') return { bg: '#fde68a', color: '#92400e' };
+  return { bg: '#e5e7eb', color: '#374151' };
+};
+
+export const logStatusOrder = (status) => {
+  const s = (status || '').toUpperCase();
+  if (s === 'PRINTED') return 1;
+  if (s === 'FAILED') return 2;
+  if (s === 'CANCELED' || s === 'CANCELLED') return 3;
+  return 4;
+};
+
+export const parseIntSafe = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
+};
+
+export const toTimestamp = (v) => {
+  const d = v ? new Date(v) : null;
+  return d && !isNaN(d.getTime()) ? d.getTime() : 0;
+};
+
+export const sortPrinterLogs = (logs = [], sortField = 'printed_at', direction = 'desc') => {
+  const dir = direction === 'asc' ? 1 : -1;
+  const af = (sortField || '').toLowerCase();
+  return [...logs].sort((a, b) => {
+    switch (af) {
+      case 'id':
+        return dir * (parseIntSafe(a.id) - parseIntSafe(b.id));
+      case 'printer_name':
+        return dir * String(a.printer_name || '').localeCompare(String(b.printer_name || ''));
+      case 'job_name':
+        return dir * String(a.job_name || '').localeCompare(String(b.job_name || ''));
+      case 'status':
+        return dir * (logStatusOrder(a.status) - logStatusOrder(b.status));
+      case 'pages':
+        return dir * (parseIntSafe(a.pages) - parseIntSafe(b.pages));
+      case 'source_machine':
+        return dir * String(a.source_machine || '').localeCompare(String(b.source_machine || ''));
+      case 'sent':
+        return dir * ((!!a.received_at === !!b.received_at) ? 0 : (!!a.received_at ? 1 : -1));
+      case 'printed_at':
+      case 'date':
+        return dir * (toTimestamp(a.printed_at) - toTimestamp(b.printed_at));
+      default:
+        return 0;
+    }
+  });
+};
+
+export const paginateItems = (items = [], page = 1, pageSize = 25) => {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = (page - 1) * pageSize;
+  return {
+    total,
+    totalPages,
+    pageItems: items.slice(start, start + pageSize),
+  };
+};
+
+export const getSortIndicator = (field, activeField, direction) => {
+  if (activeField !== field) return '';
+  return direction === 'asc' ? ' ▲' : ' ▼';
+};
+
+export const formatDateTime = (value, locale = 'en-US') => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short', day: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).format(d);
+};
+
+/**
+ * Format number with comma separators for money display
+ * e.g., 1000000 -> 1,000,000
+ */
+export const formatMoneyInput = (value) => {
+  if (!value && value !== 0) return '';
+  const num = String(value).replace(/[^0-9.-]/g, '');
+  const parts = num.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
+/**
+ * Parse money input with commas back to plain number
+ * e.g., 1,000,000 -> 1000000
+ */
+export const parseMoneyInput = (value) => {
+  if (!value && value !== 0) return '';
+  return String(value).replace(/,/g, '');
+};

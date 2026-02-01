@@ -37,7 +37,7 @@ const AddStockModal = ({
           </div>
           <div className="form-group">
             <label>Amount to add</label>
-            <input type="number" min="1" value={stockAmount} onChange={(e)=>setStockAmount(Number(e.target.value))} required />
+            <input type="number" min="1" value={stockAmount || 1} onChange={(e)=>setStockAmount(Number(e.target.value) || 1)} required />
           </div>
           <div className="modal-actions">
             <Button type="button" variant="secondary" onClick={onClose}>

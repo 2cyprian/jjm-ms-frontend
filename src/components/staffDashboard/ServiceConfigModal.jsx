@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { formatCurrency } from '../../utils/adminHelpers';
+import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../../utils/adminHelpers';
 
 const ServiceConfigModal = ({
   show,
@@ -21,7 +21,7 @@ const ServiceConfigModal = ({
 }) => {
   if (!show) return null;
 
-  const totalCost = parseInt(servicePages || 0) * parseFloat(servicePrice || 0);
+  const totalCost = parseInt(servicePages || 0) * parseFloat(parseMoneyInput(servicePrice) || 0);
 
   return (
     <div style={{
@@ -182,11 +182,9 @@ const ServiceConfigModal = ({
             Price per Page (TZS)
           </label>
           <input
-            type="number"
-            step="0.01"
-            min="0"
+            type="text"
             value={servicePrice}
-            onChange={(e) => onServicePriceChange(e.target.value)}
+            onChange={(e) => onServicePriceChange(formatMoneyInput(e.target.value))}
             placeholder="Enter price per page"
             style={{
               width: '100%',

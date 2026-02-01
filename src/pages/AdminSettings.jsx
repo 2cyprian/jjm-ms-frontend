@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { Settings, Printer, Zap, Save, Trash2, Plus, Download, Upload as UploadIcon } from 'lucide-react';
+import { Settings, Printer, Zap, Save, Trash2, Plus, Download, Upload as UploadIcon, List } from 'lucide-react';
 import {
   getSettings,
   updateSettings,
@@ -19,6 +19,8 @@ import {
 } from '../utils/adminHelpers';
 import Button from '../components/Button';
 import Sidebar from '../components/Sidebar';
+import PrinterLogsTable from '../components/adminDashboard/PrinterLogsTable';
+import PrinterLogsStats from '../components/adminDashboard/PrinterLogsStats';
 import '../css/components/admin.css';
 
 const AdminSettings = () => {
@@ -44,6 +46,24 @@ const AdminSettings = () => {
   // Printers State
   const [printers, setPrinters] = useState([]);
   const [newPrinter, setNewPrinter] = useState({ name: '', ip_address: '', modal: '' });
+  const [printerLogs, setPrinterLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsPrinter, setLogsPrinter] = useState(null);
+  // Logs sorting & pagination state
+  const [logsSortField, setLogsSortField] = useState('printed_at');
+  const [logsSortDirection, setLogsSortDirection] = useState('desc'); // 'asc' | 'desc'
+  const [logsPage, setLogsPage] = useState(1);
+  const [logsPageSize, setLogsPageSize] = useState(25);
+
+  const handleSort = (field) => {
+    if (logsSortField === field) {
+      setLogsSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setLogsSortField(field);
+      setLogsSortDirection('asc');
+    }
+    setLogsPage(1);
+  };
 
   // Load data on mount
   useEffect(() => {
@@ -287,7 +307,7 @@ const AdminSettings = () => {
           borderBottom: '2px solid #ddd',
           flexWrap: 'wrap'
         }}>
-          {['general', 'printers'].map((tab) => (
+          {['general', 'printers', 'printer-logs'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -305,6 +325,7 @@ const AdminSettings = () => {
             >
               {tab === 'general' && <Settings size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
               {tab === 'printers' && <Printer size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
+              {tab === 'printer-logs' && <List size={18} style={{ display: 'inline', marginRight: '0.5rem' }} />}
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
           ))}
@@ -534,6 +555,127 @@ const AdminSettings = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Printer Logs Tab */}
+        {activeTab === 'printer-logs' && (
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem' }}>
+            <h2 style={{ color: 'var(--primary)', marginBottom: '1.5rem' }}>Printer Logs</h2>
+
+            {/* Stats Panel */}
+            <PrinterLogsStats printersCount={printers.length} logsCount={printerLogs.length} selectedPrinterName={logsPrinter?.name || '-'} />
+
+            {/* Available Printers List with View Logs buttons */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ marginTop: 0, color: '#333' }}>Available Printers</h3>
+              {printers.length === 0 ? (
+                <p style={{ color: '#999' }}>No printers configured. Add a printer in the Printers tab.</p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {printers.map((p) => (
+                    <div key={p.id} style={{ border: '1px solid #eee', borderRadius: '8px', padding: '1rem', background: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#1f2937' }}>{p.name}</div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>{p.ip_address}</div>
+                      </div>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            setLogsLoading(true);
+                            setLogsPrinter(p);
+                            const data = await (await import('../utils/api')).getPrinterLogs({ printerId: p.id, printerName: p.name, limit: 200 });
+                            // Normalize logs shape as per provided mapping
+                            const rows = Array.isArray(data?.logs) ? data.logs : (Array.isArray(data) ? data : []);
+                            const normalized = rows.map((row) => {
+                              if (Array.isArray(row)) {
+                                return {
+                                  id: row[0],
+                                  printer_name: row[1],
+                                  job_name: row[2],
+                                  status: row[3],
+                                  pages: row[4],
+                                  source_machine: row[5],
+                                  printed_at: row[6],
+                                  received_at: row[7],
+                                };
+                              }
+                              return row;
+                            });
+                            setPrinterLogs(normalized);
+                          } catch (e) {
+                            console.error('Failed to load printer logs', e);
+                            (await import('../utils/toast')).useToast().error('Failed to load printer logs');
+                          } finally {
+                            setLogsLoading(false);
+                          }
+                        }}
+                        style={{ padding: '0.5rem 0.75rem' }}
+                      >
+                        View Logs
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Logs Table */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, color: '#333' }}>{logsPrinter ? `Logs: ${logsPrinter.name}` : 'Logs'}</h3>
+                <div>
+                  <Button
+                    onClick={async () => {
+                      if (!logsPrinter) return;
+                      try {
+                        setLogsLoading(true);
+                        const data = await (await import('../utils/api')).getPrinterLogs({ printerId: logsPrinter.id, printerName: logsPrinter.name, limit: 200 });
+                        const rows = Array.isArray(data?.logs) ? data.logs : (Array.isArray(data) ? data : []);
+                        const normalized = rows.map((row) => {
+                          if (Array.isArray(row)) {
+                            return {
+                              id: row[0],
+                              printer_name: row[1],
+                              job_name: row[2],
+                              status: row[3],
+                              pages: row[4],
+                              source_machine: row[5],
+                              printed_at: row[6],
+                              received_at: row[7],
+                            };
+                          }
+                          return row;
+                        });
+                        setPrinterLogs(normalized);
+                      } catch (e) {
+                        console.error('Failed to refresh logs', e);
+                        (await import('../utils/toast')).useToast().error('Failed to refresh logs');
+                      } finally {
+                        setLogsLoading(false);
+                      }
+                    }}
+                    disabled={!logsPrinter || logsLoading}
+                    variant="secondary"
+                    style={{ padding: '0.5rem 0.75rem' }}
+                  >
+                    Refresh
+                  </Button>
+                </div>
+              </div>
+
+              <PrinterLogsTable
+                logs={printerLogs}
+                loading={logsLoading}
+                sortField={logsSortField}
+                sortDirection={logsSortDirection}
+                onSort={handleSort}
+                page={logsPage}
+                pageSize={logsPageSize}
+                onPageChange={(newPage) => setLogsPage(newPage)}
+                onPageSizeChange={(size) => { setLogsPageSize(size); setLogsPage(1); }}
+              />
             </div>
           </div>
         )}

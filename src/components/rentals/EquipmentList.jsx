@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Eye } from 'lucide-react';
 import Button from '../Button';
-import { getEquipment } from '../../utils/api';
+import { getEquipment, getRentals } from '../../utils/api';
 import { useToast } from '../../utils/toast';
 import Spinner from '../Spinner';
 
@@ -14,11 +14,50 @@ const EquipmentList = ({ onEdit, onView, onCreateRental }) => {
     loadEquipment();
   }, []);
 
+  const parseQty = (value) => {
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const loadEquipment = async () => {
     try {
       setLoading(true);
-      const data = await getEquipment();
-      setEquipment(data.equipment || data || []);
+
+      // Load equipment and rentals together so we can compute available units
+      const [equipmentRes, rentalsRes] = await Promise.all([getEquipment(), getRentals()]);
+
+      const list = equipmentRes.equipment || equipmentRes || [];
+      const rentalsList = rentalsRes?.rentals || rentalsRes || [];
+
+      // Sum rented quantities per equipment for active/overdue rentals
+      const rentedByEquipment = {};
+      rentalsList.forEach((rental) => {
+        const status = rental?.status;
+        if (status === 'active' || status === 'overdue') {
+          const eqId = rental.equipment_id || rental.equipment?.id;
+          if (eqId) {
+            const rentedQty = parseQty(rental.quantity ?? rental.qty ?? rental.units ?? 1);
+            rentedByEquipment[eqId] = (rentedByEquipment[eqId] || 0) + rentedQty;
+          }
+        }
+      });
+
+      // Normalize quantity fields and compute available
+      const normalized = (Array.isArray(list) ? list : []).map((item) => {
+        const baseQty = parseQty(item?.qty ?? item?.quantity ?? item?.available_quantity ?? 0);
+        const rentedQty = parseQty(rentedByEquipment[item.id] || 0);
+        const availableQty = Math.max(baseQty - rentedQty, 0);
+        return {
+          ...item,
+          qty: baseQty,
+          available_qty: availableQty,
+          rented_qty: rentedQty,
+        };
+      });
+
+      console.log('Equipment availability debug:', { list: normalized, rentedByEquipment });
+
+      setEquipment(normalized);
     } catch (err) {
       toast.error('Failed to load equipment');
     } finally {
@@ -70,6 +109,9 @@ const EquipmentList = ({ onEdit, onView, onCreateRental }) => {
                 Status
               </th>
               <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                Available
+              </th>
+              <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
                 Times Rented
               </th>
               <th style={{ padding: '12px', textAlign: 'center', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
@@ -80,6 +122,7 @@ const EquipmentList = ({ onEdit, onView, onCreateRental }) => {
           <tbody>
             {equipment.map((item) => {
               const statusConfig = getStatusColor(item.status);
+              const availableQty = item.available_qty ?? item.qty ?? item.quantity ?? 0;
               return (
                 <tr key={item.id} style={{ borderBottom: '1px solid #e5e7eb', backgroundColor: '#fff' }}>
                   <td style={{ padding: '12px', fontSize: '14px', color: '#1f2937', fontWeight: '500' }}>
@@ -108,6 +151,16 @@ const EquipmentList = ({ onEdit, onView, onCreateRental }) => {
                     >
                       {statusConfig.label}
                     </span>
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ color: availableQty > 0 ? '#059669' : '#dc2626' }}>
+                        {availableQty} available
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                        Total: {item.qty ?? item.quantity ?? 0} | Out: {item.rented_qty ?? 0}
+                      </span>
+                    </div>
                   </td>
                   <td style={{ padding: '12px', fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
                     {item.times_rented || 0}

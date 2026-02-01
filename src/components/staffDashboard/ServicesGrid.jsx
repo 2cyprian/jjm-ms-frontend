@@ -55,8 +55,11 @@ const ServicesGrid = ({ services, onAddService, onDeleteService, onSelectService
                 <div className="quick-item-name" style={{ fontSize: '0.9rem', marginBottom: '0.25rem' }}>
                   {service.displayName}
                 </div>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.25rem' }}>
+                  {service.pages} page{service.pages !== 1 ? 's' : ''} @ {formatCurrency(service.price, 'TZS')}/page
+                </div>
                 <div className="quick-item-price">
-                  {formatCurrency(service.price * service.pages, 'TZS')}
+                  {formatCurrency(service.price * service.pages, 'TZS')} Total
                 </div>
               </button>
               <button

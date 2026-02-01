@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -134,6 +134,20 @@ export const deletePrinter = async (id) => {
 
 export const controlPrinter = async (action) => {
   const response = await api.post('/admin/printer/control', { action });
+  return response.data;
+};
+
+// Printer Logs API
+// Fetch logs for a specific printer by id or name
+// Usage: getPrinterLogs({ printerId: 1 }) or getPrinterLogs({ printerName: 'HP-Laser' })
+export const getPrinterLogs = async ({ printerId, printerName, limit, from, to } = {}) => {
+  const params = {};
+  if (printerId) params.printer_id = printerId;
+  if (printerName) params.printer = printerName;
+  if (limit) params.limit = limit;
+  if (from) params.from = from;
+  if (to) params.to = to;
+  const response = await api.get('/admin/printer/logs', { params });
   return response.data;
 };
 
@@ -653,55 +667,55 @@ export const updateEquipment = async (equipmentId, equipmentData) => {
 
 // RENTALS (Contracts) - Core lifecycle
 export const getRentals = async () => {
-  const response = await api.get('/rentals/rentals');
+  const response = await api.get('/rentals');
   return response.data;
 };
 
 export const getActiveRentals = async () => {
-  const response = await api.get('/rentals/rentals/active');
+  const response = await api.get('/rentals/active');
   return response.data;
 };
 
 export const getOverdueRentals = async () => {
-  const response = await api.get('/rentals/rentals/overdue');
+  const response = await api.get('/rentals/overdue');
   return response.data;
 };
 
 export const getRentalDetail = async (rentalId) => {
-  const response = await api.get(`/rentals/rentals/${rentalId}`);
+  const response = await api.get(`/rentals/${rentalId}`);
   return response.data;
 };
 
 export const createRental = async (rentalData) => {
-  const response = await api.post('/rentals/rentals', rentalData);
+  const response = await api.post('/rentals', rentalData);
   return response.data;
 };
 
 export const updateRental = async (rentalId, rentalData) => {
-  const response = await api.put(`/rentals/rentals/${rentalId}`, rentalData);
+  const response = await api.put(`/rentals/${rentalId}`, rentalData);
   return response.data;
 };
 
 // RETURNS - Equipment return workflow
 export const returnEquipment = async (rentalId, returnData) => {
-  const response = await api.post(`/rentals/rentals/${rentalId}/return`, returnData);
+  const response = await api.post(`/rentals/${rentalId}/return`, returnData);
   return response.data;
 };
 
 // OVERDUE REASONS - Dispute resolution
 export const recordOverdueReason = async (rentalId, reasonData) => {
-  const response = await api.post(`/rentals/rentals/${rentalId}/overdue-reason`, reasonData);
+  const response = await api.post(`/rentals/${rentalId}/overdue-reason`, reasonData);
   return response.data;
 };
 
 // DASHBOARD & STATS - Insights
 export const getRentalsSummary = async () => {
-  const response = await api.get('/rentals/rentals/stats/summary');
+  const response = await api.get('/rentals/stats/summary');
   return response.data;
 };
 
 export const getTopEquipment = async () => {
-  const response = await api.get('/rentals/rentals/stats/top-equipment');
+  const response = await api.get('/rentals/stats/top-equipment');
   return response.data;
 };
 

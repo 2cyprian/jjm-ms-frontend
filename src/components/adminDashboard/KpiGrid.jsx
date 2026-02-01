@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatCurrency } from '../../utils/adminHelpers';
 
-const KpiGrid = ({ stats, totalRevenueDisplay, activePrintJobs, printJobsCount, totalPrintPages, rentalIncome }) => {
+const KpiGrid = ({ stats, totalRevenueDisplay, rentalIncome }) => {
   return (
     <div className="kpi-grid">
       <div className="kpi-card">
@@ -11,16 +11,6 @@ const KpiGrid = ({ stats, totalRevenueDisplay, activePrintJobs, printJobsCount, 
         </div>
         <p className="kpi-label">Total Revenue</p>
         <h3 className="kpi-value">{formatCurrency(totalRevenueDisplay, 'TZS')}</h3>
-      </div>
-
-      <div className="kpi-card">
-        <div className="kpi-header">
-          <div className="kpi-icon blue">🖨️</div>
-          <span className="kpi-trend">Print Queue</span>
-        </div>
-        <p className="kpi-label">Active Print Jobs</p>
-        <h3 className="kpi-value">{activePrintJobs}</h3>
-        <p className="kpi-subtext">Total jobs: {printJobsCount} · Pages: {totalPrintPages}</p>
       </div>
 
       <div className="kpi-card">
