@@ -5,7 +5,7 @@ import { useToast } from '../utils/toast';
 import Sidebar from '../components/Sidebar';
 import Button from '../components/Button';
 import '../css/components/inventory.css';
-import { formatCurrency } from '../utils/adminHelpers';
+import { formatCurrency, formatMoneyInput, parseMoneyInput } from '../utils/adminHelpers';
 
 const AdminInventory = () => {
   const [products, setProducts] = useState([]);
@@ -62,11 +62,15 @@ const AdminInventory = () => {
     e.preventDefault();
     setLoading(true);
     try {
+      const productToSubmit = {
+        ...currentProduct,
+        price: parseFloat(parseMoneyInput(currentProduct.price))
+      };
       if (currentProduct.id) {
-        await updateProduct(currentProduct.id, currentProduct);
+        await updateProduct(currentProduct.id, productToSubmit);
         toast.success("Product updated successfully");
       } else {
-        await createProduct(currentProduct);
+        await createProduct(productToSubmit);
         toast.success("Product added successfully");
       }
       setShowModal(false);
@@ -505,12 +509,10 @@ const AdminInventory = () => {
                 <div className="form-group">
                   <label>Price (TZS)</label>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    min="0"
-                    step="1"
                     value={currentProduct.price}
-                    onChange={(e) => setCurrentProduct({...currentProduct, price: parseFloat(e.target.value)})}
+                    onChange={(e) => setCurrentProduct({...currentProduct, price: formatMoneyInput(e.target.value)})}
                   />
                 </div>
                 <div className="form-group">

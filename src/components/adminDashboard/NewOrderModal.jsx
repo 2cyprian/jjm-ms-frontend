@@ -41,7 +41,7 @@ const NewOrderModal = ({
           <div className="form-row">
             <div className="form-group">
               <label>Quantity</label>
-              <input type="number" min="1" value={orderQty} onChange={(e)=>setOrderQty(Number(e.target.value))} required />
+              <input type="number" min="1" value={orderQty || 1} onChange={(e)=>setOrderQty(Number(e.target.value) || 1)} required />
             </div>
             <div className="form-group">
               <label>Payment Method</label>

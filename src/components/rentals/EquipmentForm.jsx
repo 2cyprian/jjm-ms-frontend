@@ -7,6 +7,7 @@ import ImageUploadSection from './ImageUploadSection';
 import { getEquipmentDetail, createEquipment, updateEquipment } from '../../utils/api';
 import { uploadMultipleImages } from '../../utils/cloudinary';
 import { useToast } from '../../utils/toast';
+import { formatMoneyInput, parseMoneyInput } from '../../utils/adminHelpers';
 import Spinner from '../Spinner';
 import '../../css/components/rentalForms.css';
 
@@ -19,6 +20,7 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
     category: '',
     rental_rate_per_day: '',
     deposit_amount: '',
+    qty: 1,
     condition: 'Good',
     sponsor_id: '',
     responsible_person_id: '',
@@ -43,7 +45,23 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
     try {
       setLoading(true);
       const data = await getEquipmentDetail(equipmentId);
-      setForm(data || {});
+      // Normalize null values to empty strings for textarea and other fields
+      const normalized = {
+        name: data?.name || '',
+        brand: data?.brand || '',
+        model: data?.model || '',
+        serial_number: data?.serial_number || '',
+        category: data?.category || '',
+        rental_rate_per_day: data?.rental_rate_per_day || '',
+        deposit_amount: data?.deposit_amount || '',
+        qty: data?.qty || 1,
+        condition: data?.condition || 'Good',
+        sponsor_id: data?.sponsor_id || '',
+        responsible_person_id: data?.responsible_person_id || '',
+        images: data?.images || [],
+        notes: data?.notes || '', // Convert null to empty string
+      };
+      setForm(normalized);
     } catch (err) {
       toast.error('Failed to load equipment');
     } finally {
@@ -53,7 +71,12 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    // For money fields, format with commas for display
+    if (['rental_rate_per_day', 'deposit_amount'].includes(name)) {
+      setForm((prev) => ({ ...prev, [name]: formatMoneyInput(value) }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleImageUpload = async (files) => {
@@ -119,6 +142,10 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
       toast.error('Deposit cannot be negative');
       return;
     }
+    if (!form.qty || form.qty < 1) {
+      toast.error('Quantity must be at least 1');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -128,10 +155,14 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
         name: form.name,
         serial_number: form.serial_number,
         category: form.category,
-        rental_rate_per_day: parseFloat(form.rental_rate_per_day),
-        deposit_amount: parseFloat(form.deposit_amount) || 0,
+        rental_rate_per_day: parseFloat(parseMoneyInput(form.rental_rate_per_day)),
+        deposit_amount: parseFloat(parseMoneyInput(form.deposit_amount)) || 0,
+        qty: parseInt(form.qty) || 1,
         condition: form.condition || 'Good',
       };
+
+      // Log payload to verify what is being sent to backend
+      console.log('Submitting equipment payload:', submitData);
 
       // Add optional fields only if they have values
       if (form.brand) submitData.brand = form.brand;
@@ -180,6 +211,54 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit} className="rental-form-container">
+      {/* Show existing images in edit mode */}
+      {equipmentId && form.images && form.images.length > 0 && (
+        <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid #e5e7eb' }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+            Current Images
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px' }}>
+            {form.images.map((img, idx) => (
+              <div
+                key={idx}
+                style={{
+                  position: 'relative',
+                  borderRadius: '6px',
+                  overflow: 'hidden',
+                  border: '1px solid #d1d5db',
+                  backgroundColor: '#f3f4f6',
+                }}
+              >
+                <img
+                  src={typeof img === 'string' ? img : img.url}
+                  alt={`Equipment ${idx + 1}`}
+                  style={{ width: '100%', height: '120px', objectFit: 'cover' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(idx)}
+                  style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    backgroundColor: '#ef4444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rental-form-grid">
         <div className="rental-form-field">
           <label className="rental-form-label">
@@ -275,7 +354,7 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
             Rental Rate Per Day (TZS) <span className="required">*</span>
           </label>
           <input
-            type="number"
+            type="text"
             name="rental_rate_per_day"
             value={form.rental_rate_per_day}
             onChange={handleChange}
@@ -288,12 +367,28 @@ const EquipmentForm = ({ equipmentId, onSave, onCancel }) => {
         <div className="rental-form-field">
           <label className="rental-form-label">Deposit Amount (TZS)</label>
           <input
-            type="number"
+            type="text"
             name="deposit_amount"
             value={form.deposit_amount}
             onChange={handleChange}
             placeholder="500000"
             className="rental-form-input"
+          />
+        </div>
+
+        <div className="rental-form-field">
+          <label className="rental-form-label">
+            Quantity Available <span className="required">*</span>
+          </label>
+          <input
+            type="number"
+            name="qty"
+            value={form.qty}
+            onChange={handleChange}
+            min="1"
+            placeholder="1"
+            className="rental-form-input"
+            required
           />
         </div>
       </div>

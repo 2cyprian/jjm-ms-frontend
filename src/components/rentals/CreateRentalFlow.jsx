@@ -3,6 +3,7 @@ import Button from '../Button';
 import Spinner from '../Spinner';
 import { getPersons, getEquipment, getSponsors, createRental } from '../../utils/api';
 import { useToast } from '../../utils/toast';
+import { formatMoneyInput, parseMoneyInput } from '../../utils/adminHelpers';
 import '../../css/components/rentalForms.css';
 
 const CreateRentalFlow = ({ onSave, onCancel }) => {
@@ -24,6 +25,7 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
     start_date: '',
     expected_return_date: '',
     deposit_paid: 0,
+    quantity: 1,
     notes: '',
   });
 
@@ -70,6 +72,17 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
         toast.error('Return date must be after start date');
         return;
       }
+      // Validate quantity
+      const quantity = parseInt(rentalData.quantity);
+      if (!quantity || quantity < 1) {
+        toast.error('Quantity must be at least 1');
+        return;
+      }
+      const availableQty = selectedEquipment?.qty ?? selectedEquipment?.quantity ?? 0;
+      if (quantity > availableQty) {
+        toast.error(`Only ${availableQty} unit(s) available`);
+        return;
+      }
     }
     if (step < 4) {
       setStep(step + 1);
@@ -86,7 +99,15 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
     try {
       setSubmitting(true);
 
+      // Validate person phone number (backend requires min 10 characters)
+      if (!selectedPerson.phone || selectedPerson.phone.length < 10) {
+        toast.error('Customer phone number must be at least 10 characters');
+        setSubmitting(false);
+        return;
+      }
+
       // Prepare rental data with EXACT API fields
+      const parsedQty = parseInt(rentalData.quantity) || 1;
       const submitData = {
         equipment_id: selectedEquipment.id,
         customer_name: selectedPerson.full_name,
@@ -95,7 +116,10 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
         start_date: rentalData.start_date,
         expected_return_date: rentalData.expected_return_date,
         rate_per_day: parseFloat(selectedEquipment.rental_rate_per_day),
-        deposit_paid: parseFloat(rentalData.deposit_paid) || 0,
+        deposit_paid: parseFloat(parseMoneyInput(rentalData.deposit_paid)) || 0,
+        quantity: parsedQty,
+        // send duplicate key for compatibility if backend expects qty
+        qty: parsedQty,
       };
 
       // Add optional fields only if provided
@@ -310,13 +334,30 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
             </div>
             <div className="rental-form-field">
               <label className="rental-form-label">
-                Deposit Paid (TZS)
+                Quantity <span className="required">*</span>
               </label>
               <input
                 type="number"
+                value={rentalData.quantity}
+                onChange={(e) => setRentalData({ ...rentalData, quantity: e.target.value })}
+                min="1"
+                max={selectedEquipment?.qty || 1}
+                className="rental-form-input"
+                required
+              />
+              <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                Available: {selectedEquipment?.qty || 0} unit{selectedEquipment?.qty !== 1 ? 's' : ''}
+              </div>
+            </div>
+            <div className="rental-form-field">
+              <label className="rental-form-label">
+                Deposit Paid (TZS)
+              </label>
+              <input
+                type="text"
                 value={rentalData.deposit_paid}
-                onChange={(e) => setRentalData({ ...rentalData, deposit_paid: e.target.value })}
-                placeholder={`${selectedEquipment?.deposit_amount || 0}`}
+                onChange={(e) => setRentalData({ ...rentalData, deposit_paid: formatMoneyInput(e.target.value) })}
+                placeholder={`${selectedEquipment?.deposit_amount?.toLocaleString() || 0}`}
                 className="rental-form-input"
               />
               <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
@@ -403,7 +444,7 @@ const CreateRentalFlow = ({ onSave, onCancel }) => {
               <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '6px', border: '1px solid #e5e7eb' }}>
                 <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500', marginBottom: '8px' }}>DEPOSIT</div>
                 <div style={{ fontSize: '16px', fontWeight: '600', color: '#1F2937' }}>
-                  TZS {parseFloat(rentalData.deposit_paid || 0).toLocaleString()}
+                  TZS {Number(parseMoneyInput(rentalData.deposit_paid || '0') || 0).toLocaleString()}
                 </div>
                 <div style={{ fontSize: '13px', color: '#6b7280', marginTop: '4px' }}>
                   Required: TZS {selectedEquipment?.deposit_amount?.toLocaleString()}

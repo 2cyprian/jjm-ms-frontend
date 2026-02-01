@@ -20,6 +20,17 @@ const RentalsList = ({ onCreateRental, onViewDetail, onReturn }) => {
       setLoading(true);
       let data = await getRentals();
       let rentalsList = data.rentals || data || [];
+      
+      // DEBUG: Log raw rental response to see quantity field names
+      console.log('===== RENTALS API RESPONSE DEBUG =====');
+      console.log('Raw response:', data);
+      if (rentalsList.length > 0) {
+        console.log('First rental keys:', Object.keys(rentalsList[0]));
+        console.log('First rental FULL object:', JSON.stringify(rentalsList[0], null, 2));
+        console.log('Quantity fields - quantity:', rentalsList[0].quantity, 'qty:', rentalsList[0].qty, 'units:', rentalsList[0].units);
+      }
+      console.log('=====================================');
+      
       // Fetch equipment details for each rental since equipment is null in the response
       rentalsList = await Promise.all(
         rentalsList.map(async (rental) => {
@@ -125,6 +136,9 @@ const RentalsList = ({ onCreateRental, onViewDetail, onReturn }) => {
                 Status
               </th>
               <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
+                Out (Units)
+              </th>
+              <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
                 Days
               </th>
               <th style={{ padding: '12px', textAlign: 'center', fontSize: '14px', fontWeight: '600', color: '#374151' }}>
@@ -145,6 +159,12 @@ const RentalsList = ({ onCreateRental, onViewDetail, onReturn }) => {
               const startDate = new Date(rental.start_date);
               const days = Math.floor((dueDate - startDate) / (1000 * 60 * 60 * 24));
               const overdueFlag = rental.status === 'overdue' && now > dueDate;
+              const rentalQty = rental.quantity ?? rental.qty ?? rental.units ?? 1;
+              
+              // DEBUG: Log quantity for each rental to verify
+              if (rental.id % 2 === 0) { // Log every other one to avoid spam
+                console.log(`Rental ${rental.id} qty check - quantity: ${rental.quantity}, qty: ${rental.qty}, units: ${rental.units}, final: ${rentalQty}`);
+              }
               
               // Extract person and equipment names from nested objects or direct fields
               const personName = rental.customer_name || rental.person?.full_name || 'N/A';
@@ -193,6 +213,21 @@ const RentalsList = ({ onCreateRental, onViewDetail, onReturn }) => {
                         {statusConfig.label}
                       </span>
                     </div>
+                  </td>
+                  <td style={{ padding: '12px', fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        backgroundColor: '#fef3c7',
+                        color: '#78350f',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '700',
+                      }}
+                    >
+                      {rentalQty} unit{rentalQty !== 1 ? 's' : ''}
+                    </span>
                   </td>
                   <td style={{ padding: '12px', fontSize: '14px', color: '#1f2937', fontWeight: '600' }}>
                     {days}

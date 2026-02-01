@@ -1,21 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import RentalSubnav from '../components/RentalSubnav';
 import PersonsList from '../components/rentals/PersonsList';
 import PersonForm from '../components/rentals/PersonForm';
 import EquipmentList from '../components/rentals/EquipmentList';
+import EquipmentDetail from '../components/rentals/EquipmentDetail';
 import EquipmentForm from '../components/rentals/EquipmentForm';
 import RentalsList from '../components/rentals/RentalsList';
 import RentalDetail from '../components/rentals/RentalDetail';
 import SponsorsList from '../components/rentals/SponsorsList';
 import SponsorForm from '../components/rentals/SponsorForm';
 import CreateRentalFlow from '../components/rentals/CreateRentalFlow';
+import ReturnRentalModal from '../components/rentals/ReturnRentalModal';
 import '../css/components/dashboard.css';
 
 function RentalManagement() {
   const [activeTab, setActiveTab] = useState('rentals');
   const [view, setView] = useState('list'); // list, form, detail
   const [selectedId, setSelectedId] = useState(null);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [equipmentRefreshTrigger, setEquipmentRefreshTrigger] = useState(0);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -85,8 +90,9 @@ function RentalManagement() {
   };
 
   const handleReturnRental = (rentalId) => {
+    console.log('Opening return modal for rental:', rentalId);
     setSelectedId(rentalId);
-    setView('return');
+    setShowReturnModal(true);
   };
 
   const renderContent = () => {
@@ -98,6 +104,7 @@ function RentalManagement() {
               onCreateRental={handleCreateRental}
               onViewDetail={handleViewRentalDetail}
               onReturn={handleReturnRental}
+              key={refreshTrigger}
             />
           </div>
         );
@@ -108,6 +115,8 @@ function RentalManagement() {
               onSave={() => {
                 setView('list');
                 setSelectedId(null);
+                setRefreshTrigger(prev => prev + 1);
+                setEquipmentRefreshTrigger(prev => prev + 1);
               }}
               onCancel={() => {
                 setView('list');
@@ -125,13 +134,8 @@ function RentalManagement() {
                 setView('list');
                 setSelectedId(null);
               }}
+              onReturn={handleReturnRental}
             />
-          </div>
-        );
-      } else if (view === 'return') {
-        return (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', overflow: 'auto' }}>
-            <p style={{ color: '#9ca3af' }}>Return flow - to be integrated with RentalDetail</p>
           </div>
         );
       }
@@ -180,6 +184,7 @@ function RentalManagement() {
                 onEdit={handleEditEquipment}
                 onView={handleViewEquipment}
                 onCreateRental={handleCreateRental}
+                key={equipmentRefreshTrigger}
               />
             </div>
           </div>
@@ -201,9 +206,17 @@ function RentalManagement() {
       } else if (view === 'detail') {
         return (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', overflow: 'auto' }}>
-            <h3 style={{ marginTop: 0 }}>Equipment Detail</h3>
-            <p style={{ color: '#6b7280' }}>Equipment ID: {selectedId}</p>
-            <p style={{ color: '#9ca3af' }}>Detail tabs: Info | Rental History | Usage Stats | Damage Notes</p>
+            <EquipmentDetail
+              equipmentId={selectedId}
+              onBack={() => {
+                setView('list');
+                setSelectedId(null);
+              }}
+              onEdit={(equipmentId) => {
+                setSelectedId(equipmentId);
+                setView('form');
+              }}
+            />
           </div>
         );
       }
@@ -276,6 +289,29 @@ function RentalManagement() {
           {renderContent()}
         </div>
       </div>
+      
+      {/* Return Rental Modal */}
+      {showReturnModal && (
+        <>
+          {console.log('Rendering ReturnRentalModal with rentalId:', selectedId)}
+          <ReturnRentalModal
+            rentalId={selectedId}
+            onClose={() => {
+              console.log('Closing return modal');
+              setShowReturnModal(false);
+              setSelectedId(null);
+            }}
+            onSuccess={() => {
+              console.log('Return successful');
+              setShowReturnModal(false);
+              setSelectedId(null);
+              setView('list');
+              setRefreshTrigger(prev => prev + 1);
+              setEquipmentRefreshTrigger(prev => prev + 1);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

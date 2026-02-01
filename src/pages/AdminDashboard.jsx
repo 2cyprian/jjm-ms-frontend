@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, fetchQueue, getActiveRentals, getEquipmentDetail, getRentalIncome, getCacheHealth } from '../utils/api';
+import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, fetchQueue, getActiveRentals, getEquipmentDetail, getRentalIncome } from '../utils/api';
 import { formatDayLabel } from '../utils/adminHelpers';
 import api from '../utils/api';
 import '../css/components/adminDashboard.css';
@@ -58,17 +58,12 @@ const AdminDashboard = () => {
   const [totalPrintPages, setTotalPrintPages] = useState(0);
   const [completedPrintJobs, setCompletedPrintJobs] = useState(0);
   // Date filter state
-  const [dateFilter, setDateFilter] = useState('last_7_days'); // today, last_7_days, last_30_days, last_90_days, custom
-  const [startDate, setStartDate] = useState(''); // for custom range
-  const [endDate, setEndDate] = useState(''); // for custom range
+  const [dateFilter, setDateFilter] = useState('last_7_days'); // today, last_7_days, last_30_days, last_90_days
   const [ordersLimit, setOrdersLimit] = useState(10);
   
   // Rentals state
   const [activeRentals, setActiveRentals] = useState([]);
   const [rentalsLoading, setRentalsLoading] = useState(false);
-  // System status state
-  const [cacheHealth, setCacheHealth] = useState(null);
-  const [systemOnline, setSystemOnline] = useState(true);
 
 
 
@@ -93,22 +88,10 @@ const AdminDashboard = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [dateFilter, startDate, endDate, ordersLimit]); // Reload when filters change
+  }, [dateFilter, ordersLimit]); // Reload when filters change
 
   const handleDateFilterChange = (newFilter) => {
     setDateFilter(newFilter);
-    // Clear custom dates when switching to presets
-    if (newFilter !== 'custom') {
-      setStartDate('');
-      setEndDate('');
-    }
-    // Data will reload automatically via useEffect dependency
-  };
-
-  const handleCustomRangeApply = (start, end) => {
-    setStartDate(start);
-    setEndDate(end);
-    setDateFilter('custom');
     // Data will reload automatically via useEffect dependency
   };
 
@@ -129,25 +112,18 @@ const AdminDashboard = () => {
         return 0;
       };
       
-      // Build date params for API calls
-      const dateParams = dateFilter === 'custom' && startDate && endDate
-        ? { date_range: 'custom', start_date: startDate, end_date: endDate }
-        : { date_range: dateFilter };
-
       // Load each endpoint independently with fallback data
-      const [statsData, revenueRes, topProductsRes, ordersRes, jobsRes, rentalsRes, rentalIncomeRes, cacheHealthRes] = await Promise.allSettled([
-        getDashboardStats(dateParams),
-        getRevenueData(dateParams),
-        getTopSellingProducts(dateParams),
+      const [statsData, revenueRes, topProductsRes, ordersRes, jobsRes, rentalsRes, rentalIncomeRes] = await Promise.allSettled([
+        getDashboardStats(dateFilter),
+        getRevenueData(dateFilter),
+        getTopSellingProducts(dateFilter),
         getRecentOrders(ordersLimit),
         // Fetch print jobs from queue - returns array directly
         fetchQueue(),
         // Fetch active rentals
         getActiveRentals(),
         // Fetch rental income
-        getRentalIncome(),
-        // Fetch cache health
-        getCacheHealth()
+        getRentalIncome()
       ]);
       
       // Set rental income robustly
@@ -284,17 +260,6 @@ const AdminDashboard = () => {
         setActivePrintJobs(0);
         setTotalPrintPages(0);
         setCompletedPrintJobs(0);
-      }
-
-      // Set cache health with fallback
-      if (cacheHealthRes.status === 'fulfilled') {
-        const healthData = cacheHealthRes.value;
-        setCacheHealth(healthData);
-        setSystemOnline(healthData?.connected ?? true);
-      } else {
-        console.warn('Cache health endpoint failed:', cacheHealthRes.reason);
-        setCacheHealth(null);
-        setSystemOnline(false);
       }
 
       // Set active rentals with fallback - fetch only first 5
@@ -445,10 +410,7 @@ const AdminDashboard = () => {
       <div className="main-content">
         <DashboardHeader 
           dateFilter={dateFilter} 
-          onDateFilterChange={handleDateFilterChange}
-          startDate={startDate}
-          endDate={endDate}
-          onCustomRangeApply={handleCustomRangeApply}
+          onDateFilterChange={handleDateFilterChange} 
         />
 
         {refreshing && (
@@ -462,9 +424,6 @@ const AdminDashboard = () => {
           <KpiGrid 
             stats={stats} 
             totalRevenueDisplay={totalRevenueDisplay} 
-            activePrintJobs={activePrintJobs}
-            printJobsCount={printJobsCount}
-            totalPrintPages={totalPrintPages}
             rentalIncome={rentalIncome}
           />
 
@@ -473,15 +432,11 @@ const AdminDashboard = () => {
             <RevenueChart 
               revenueData={revenueData} 
               dateFilter={dateFilter}
-              startDate={startDate}
-              endDate={endDate}
             />
 
             <TopSellingList 
               topSelling={topSelling} 
               dateFilter={dateFilter}
-              startDate={startDate}
-              endDate={endDate}
             />
           </div>
 
@@ -498,13 +453,7 @@ const AdminDashboard = () => {
             <div className="side-panels">
               <QuickActions onNewOrder={openNewOrderModal} onAddStock={openAddStockModal} />
               
-              <SystemStatusCard 
-                isOnline={systemOnline}
-                printQueueCount={activePrintJobs}
-                totalPrintPages={totalPrintPages}
-                cacheHealth={cacheHealth}
-                loading={loading}
-              />
+              <SystemStatusCard />
             </div>
           </div>
         </div>
