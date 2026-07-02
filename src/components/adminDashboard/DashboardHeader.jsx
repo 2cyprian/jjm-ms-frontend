@@ -2,7 +2,7 @@ import React from 'react';
 import DateRangeSelector from './DateRangeSelector';
 import { FiRefreshCw } from 'react-icons/fi';
 
-const DashboardHeader = ({ dateFilter, onDateFilterChange, startDate, endDate, onCustomRangeApply, onRefresh }) => {
+const DashboardHeader = ({  onRefresh }) => {
   return (
     <div className="admin-dashboard-header">
       <div>
@@ -23,13 +23,7 @@ const DashboardHeader = ({ dateFilter, onDateFilterChange, startDate, endDate, o
         </p>
       </div>
       <div className="header-actions" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <DateRangeSelector 
-          dateFilter={dateFilter}
-          onDateFilterChange={onDateFilterChange}
-          startDate={startDate}
-          endDate={endDate}
-          onCustomRangeApply={onCustomRangeApply}
-        />
+        
         <button
           onClick={onRefresh}
           style={{

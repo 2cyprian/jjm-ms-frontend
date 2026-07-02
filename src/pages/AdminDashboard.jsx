@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
-import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, fetchQueue, getActiveRentals, getEquipmentDetail, getRentalIncome } from '../utils/api';
+import { getDashboardStats, getRevenueData, getTopSellingProducts, getRecentOrders, getProducts, updateProduct, checkout, getActiveRentals, getEquipmentDetail, getRentalIncome } from '../utils/api';
+// Removed: fetchQueue
 import { formatDayLabel } from '../utils/adminHelpers';
-import api from '../utils/api';
 import '../css/components/adminDashboard.css';
 import { useToast } from '../utils/toast';
 import DashboardHeader from '../components/adminDashboard/DashboardHeader';
@@ -17,10 +17,11 @@ import NewOrderModal from '../components/adminDashboard/NewOrderModal';
 import AddStockModal from '../components/adminDashboard/AddStockModal';
 
 const AdminDashboard = () => {
-  // Rental Revenue
   const [rentalIncome, setRentalIncome] = useState(0);
   const navigate = useNavigate();
   const toast = useToast();
+  
+  // KPI Data - Separate state for KPIs
   const [stats, setStats] = useState({
     totalRevenue: 0,
     revenueChange: 0,
@@ -31,15 +32,17 @@ const AdminDashboard = () => {
     footfallChange: 0
   });
   
-  // Print jobs are separate from orders
-  const [activePrintJobs, setActivePrintJobs] = useState(0);
-
+  // Chart/Graph Data - Separate state for charts
   const [revenueData, setRevenueData] = useState([]);
   const [topSelling, setTopSelling] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [loading, setLoading] = useState(true); // first-load spinner only
-  const [refreshing, setRefreshing] = useState(false); // background refresh indicator
+  
+  // Loading states - Separate for KPIs and charts
+  const [kpiLoading, setKpiLoading] = useState(true);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  
   // Quick Actions state
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [showAddStock, setShowAddStock] = useState(false);
@@ -51,106 +54,68 @@ const AdminDashboard = () => {
   const [stockProductId, setStockProductId] = useState('');
   const [stockAmount, setStockAmount] = useState(1);
   const [actionBusy, setActionBusy] = useState(false);
-  // Print jobs state
-  const [printJobs, setPrintJobs] = useState([]);
-  const [printJobsCount, setPrintJobsCount] = useState(0);
-  const [totalPrintPages, setTotalPrintPages] = useState(0);
-  const [completedPrintJobs, setCompletedPrintJobs] = useState(0);
+  
   // Date filter state
-  const [dateFilter, setDateFilter] = useState('today'); // today, last_7_days, last_30_days, last_90_days
+  const [dateFilter, setDateFilter] = useState('today');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [ordersLimit, setOrdersLimit] = useState(10);
   
   // Rentals state
   const [activeRentals, setActiveRentals] = useState([]);
-  const [rentalsLoading, setRentalsLoading] = useState(false);
 
-
-
-  useEffect(() => {
-    // Role guard: redirect staff to staff dashboard
-    try {
-      const raw = localStorage.getItem('user');
-      const user = raw ? JSON.parse(raw) : null;
-      const roleRaw = user?.role || user?.role_name || user?.user_type;
-      const role = typeof roleRaw === 'string' ? roleRaw.toLowerCase() : roleRaw;
-      if (!role || (role !== 'admin' && role !== 'owner' && role !== 'manager')) {
-        navigate('/staff');
-        return;
-      }
-    } catch (_) {}
-    loadDashboardData();
-  }, []); // Load only on mount
-  
-  // Reload data INSTANTLY when date filter changes
-  useEffect(() => {
-    if (hasLoaded) {
-      console.log(' Date filter changed - loading data instantly...');
-      loadDashboardData();
+  // Helper function to convert values to numbers
+  const toNumber = (v) => {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    if (typeof v === 'string') {
+      const num = parseFloat(v.replace(/[^0-9.-]/g, ''));
+      return Number.isFinite(num) ? num : 0;
     }
+    return 0;
+  };
+
+  // Build date params for API calls
+  const getDateParams = useCallback(() => {
+    return dateFilter === 'custom' && startDate && endDate
+      ? { start_date: startDate, end_date: endDate }
+      : { date_range: dateFilter };
   }, [dateFilter, startDate, endDate]);
 
-  const handleDateFilterChange = (newFilter) => {
-    console.log('📅 Date filter changed to:', newFilter);
-    setDateFilter(newFilter);
-    // Clear custom dates when switching to preset
-    setStartDate('');
-    setEndDate('');
-    // Data will reload when user clicks refresh button
-  };
-
-  const handleCustomRangeApply = (customStartDate, customEndDate) => {
-    console.log('📅 Custom date range applied:', { customStartDate, customEndDate });
-    setStartDate(customStartDate);
-    setEndDate(customEndDate);
-    // Data will reload when user clicks refresh button
-  };
-
-  const handleManualRefresh = async () => {
-    console.log(' Manual refresh triggered for current date range:', { dateFilter, startDate, endDate });
-    await loadDashboardData();
-  };
-
-  const loadDashboardData = async () => {
-    const isFirstLoad = !hasLoaded;
+  // 1. LOAD KPI DATA ONLY
+  const loadKpiData = useCallback(async () => {
     try {
-      if (isFirstLoad) {
-        setLoading(true);
-      } else {
-        setRefreshing(true);
-      }
-      const toNumber = (v) => {
-        if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
-        if (typeof v === 'string') {
-          const num = parseFloat(v.replace(/[^0-9.-]/g, ''));
-          return Number.isFinite(num) ? num : 0;
-        }
-        return 0;
-      };
+      setKpiLoading(true);
+      const dateParams = getDateParams();
       
-      // Build date params for API calls
-      const dateParams = dateFilter === 'custom' && startDate && endDate
-        ? { start_date: startDate, end_date: endDate }
-        : { date_range: dateFilter };
+      console.log('📊 Loading KPI data with params:', dateParams);
       
-      console.log(' Date params for API:', dateParams);
-      
-      // Load each endpoint independently with fallback data
-      const [statsData, revenueRes, topProductsRes, ordersRes, jobsRes, rentalsRes, rentalIncomeRes] = await Promise.allSettled([
+      // Load only KPI-related data
+      const [statsData, rentalIncomeRes] = await Promise.allSettled([
         getDashboardStats(dateParams),
-        getRevenueData(dateParams),
-        getTopSellingProducts(dateParams),
-        getRecentOrders(ordersLimit),
-        // Fetch print jobs from queue - returns array directly
-        fetchQueue(),
-        // Fetch active rentals
-        getActiveRentals(),
-        // Fetch rental income
         getRentalIncome()
       ]);
       
-      // Set rental income robustly
+      // Set stats with fallback
+      if (statsData.status === 'fulfilled') {
+        const data = statsData.value || {};
+        const statsToSet = {
+          totalRevenue: toNumber(data.totalRevenue ?? data.total_revenue ?? data.total_sales ?? data.revenue),
+          revenueChange: toNumber(data.revenueChange ?? data.revenue_change ?? data.change),
+          totalOrders: toNumber(data.totalOrders ?? data.total_orders ?? data.orders),
+          ordersChange: toNumber(data.ordersChange ?? data.orders_change),
+          totalExpenses: toNumber(data.totalExpenses ?? data.total_expenses),
+          expensesChange: toNumber(data.expensesChange ?? data.expenses_change),
+          lowStockItems: toNumber(data.lowStockItems ?? data.low_stock_items ?? data.low_stock),
+          dailyFootfall: toNumber(data.dailyFootfall ?? data.daily_footfall ?? data.footfall),
+          footfallChange: toNumber(data.footfallChange ?? data.footfall_change)
+        };
+        console.log('📊 KPI Data loaded:', statsToSet);
+        setStats(statsToSet);
+      } else {
+        console.warn('[DASHBOARD] Stats endpoint failed:', statsData.reason);
+      }
+      
+      // Set rental income
       let income = 0;
       if (rentalIncomeRes && rentalIncomeRes.status === 'fulfilled') {
         const rawIncome = rentalIncomeRes.value;
@@ -161,37 +126,35 @@ const AdminDashboard = () => {
         if (!isFinite(income) || isNaN(income)) {
           income = 0;
         }
-      } else {
-        console.warn('[DASHBOARD] Rental income request failed:', rentalIncomeRes?.reason);
       }
       setRentalIncome(income);
+      
+    } catch (error) {
+      console.error('Error loading KPI data:', error);
+    } finally {
+      setKpiLoading(false);
+    }
+  }, [getDateParams]);
 
-
-
-      // Set stats with fallback - orders and print jobs are separate
-      if (statsData.status === 'fulfilled') {
-          const data = statsData.value || {};
-          const statsToSet = {
-            totalRevenue: toNumber(data.totalRevenue ?? data.total_revenue ?? data.total_sales ?? data.revenue),
-            revenueChange: toNumber(data.revenueChange ?? data.revenue_change ?? data.change),
-            totalOrders: toNumber(data.totalOrders ?? data.total_orders ?? data.orders),
-            ordersChange: toNumber(data.ordersChange ?? data.orders_change),
-            totalExpenses: toNumber(data.totalExpenses ?? data.total_expenses),
-            expensesChange: toNumber(data.expensesChange ?? data.expenses_change),
-            lowStockItems: toNumber(data.lowStockItems ?? data.low_stock_items ?? data.low_stock),
-            dailyFootfall: toNumber(data.dailyFootfall ?? data.daily_footfall ?? data.footfall),
-            footfallChange: toNumber(data.footfallChange ?? data.footfall_change)
-          };
-          console.log(' Stats set from API:', statsToSet);
-          setStats(statsToSet);
-      } else {
-        console.warn('[DASHBOARD] Stats endpoint failed:', statsData.reason);
-      }
-
-      // Set revenue data with fallback and array guard
+  // 2. LOAD CHART DATA ONLY
+  const loadChartData = useCallback(async () => {
+    try {
+      setChartLoading(true);
+      const dateParams = getDateParams();
+      
+      console.log('📈 Loading Chart data with params:', dateParams);
+      
+      // Load only chart-related data (removed fetchQueue for print jobs)
+      const [revenueRes, topProductsRes, ordersRes, rentalsRes] = await Promise.allSettled([
+        getRevenueData(dateParams),
+        getTopSellingProducts(dateParams),
+        getRecentOrders(ordersLimit),
+        getActiveRentals()
+      ]);
+      
+      // Set revenue data
       if (revenueRes.status === 'fulfilled') {
         const revenuePayload = revenueRes.value;
-        // Support multiple backend shapes: plain array or wrapped under data/results/chart/points
         const revenueArray = Array.isArray(revenuePayload)
           ? revenuePayload
           : Array.isArray(revenuePayload?.data)
@@ -204,55 +167,34 @@ const AdminDashboard = () => {
                   ? revenuePayload.points
                   : [];
 
-        const data = revenueArray.map(d => {
-          const dayKey = d.date || d.day || d.label || d.period || null;
-          return {
-            day: formatDayLabel(dayKey),
-            value: toNumber(d.value ?? d.revenue ?? d.amount ?? d.total)
-          };
-        });
+        const data = revenueArray.map(d => ({
+          day: formatDayLabel(d.date || d.day || d.label || d.period || null),
+          value: toNumber(d.value ?? d.revenue ?? d.amount ?? d.total)
+        }));
         setRevenueData(data);
       } else {
         console.warn('Revenue endpoint failed:', revenueRes.reason);
-        setRevenueData([
-          { day: 'Mon', value: 0 },
-          { day: 'Tue', value: 0 },
-          { day: 'Wed', value: 0 },
-          { day: 'Thu', value: 0 },
-          { day: 'Fri', value: 0 },
-          { day: 'Sat', value: 0 },
-          { day: 'Sun', value: 0 }
-        ]);
+        setRevenueData([]);
       }
 
-      // Set top products with fallback and array guard
+      // Set top products
       if (topProductsRes.status === 'fulfilled') {
-        console.log(' Top Products Response:', topProductsRes.value);
-        
-        // Handle both direct array and products property structure
         const productsArray = topProductsRes.value?.products || (Array.isArray(topProductsRes.value) ? topProductsRes.value : []);
-        console.log(' Products Array:', productsArray);
-        
         const data = Array.isArray(productsArray)
-          ? productsArray.map((p, idx) => {
-              const mapped = {
-                name: p.productName || p.name || p.product_name || p.title || `Product ${idx + 1}`,
-                sold: p.quantitySold ?? p.sold ?? p.quantity_sold ?? p.units ?? p.count ?? 0,
-                revenue: p.revenue ?? p.total_revenue ?? 0,
-                percentage: p.percentage ?? p.share ?? p.percent ?? 0,
-              };
-              console.log(`🏆 Mapped product ${idx}:`, mapped);
-              return mapped;
-            })
+          ? productsArray.map((p, idx) => ({
+              name: p.productName || p.name || p.product_name || p.title || `Product ${idx + 1}`,
+              sold: p.quantitySold ?? p.sold ?? p.quantity_sold ?? p.units ?? p.count ?? 0,
+              revenue: p.revenue ?? p.total_revenue ?? 0,
+              percentage: p.percentage ?? p.share ?? p.percent ?? 0,
+            }))
           : [];
         setTopSelling(data);
-        console.log('Top Selling set with', data.length, 'products');
       } else {
         console.warn('Top products endpoint failed:', topProductsRes.reason);
         setTopSelling([]);
       }
 
-      // Set recent orders with fallback and array guard
+      // Set recent orders
       if (ordersRes.status === 'fulfilled') {
         const data = Array.isArray(ordersRes.value)
           ? ordersRes.value.map((o, idx) => ({
@@ -269,75 +211,130 @@ const AdminDashboard = () => {
         setRecentOrders([]);
       }
 
-      // Set print jobs with fallback and array guard
-      if (jobsRes.status === 'fulfilled') {
-        const allJobs = Array.isArray(jobsRes.value) ? jobsRes.value : [];
-        // Filter for active jobs (pending/processing only)
-        const activeJobs = allJobs.filter(job => 
-          job.status === 'pending' || job.status === 'processing'
-        );
-        // Completed jobs
-        const completedJobs = allJobs.filter(job => {
-          const s = (job.status || '').toLowerCase();
-          return s === 'completed' || s === 'done' || s === 'finished' || s === 'printed';
-        });
-        // Total pages across jobs (best-effort field detection)
-        const totalPages = allJobs.reduce((sum, job) => {
-          const pages = toNumber(job.pages ?? job.page_count ?? job.total_pages ?? 0);
-          return sum + pages;
-        }, 0);
-
-        setPrintJobs(allJobs);
-        setPrintJobsCount(allJobs.length);
-        setActivePrintJobs(activeJobs.length);
-        setTotalPrintPages(totalPages);
-        setCompletedPrintJobs(completedJobs.length);
-      } else {
-        console.warn('Print jobs endpoint failed:', jobsRes.reason);
-        setPrintJobs([]);
-        setPrintJobsCount(0);
-        setActivePrintJobs(0);
-        setTotalPrintPages(0);
-        setCompletedPrintJobs(0);
-      }
-
-      // Set active rentals with fallback - fetch only first 5
+      // Set active rentals
       if (rentalsRes.status === 'fulfilled') {
         let rentalsList = Array.isArray(rentalsRes.value) ? rentalsRes.value : [];
-        
-        // Fetch equipment details for each rental
         rentalsList = await Promise.all(
           rentalsList.slice(0, 5).map(async (rental) => {
             if (rental.equipment_id && !rental.equipment) {
               try {
                 const equipmentData = await getEquipmentDetail(rental.equipment_id);
                 return { ...rental, equipment: equipmentData };
-              } catch (err) {
+              } catch (error) {
+                // Use error variable or ignore with _
+                console.warn('Failed to load equipment detail:', error);
                 return rental;
               }
             }
             return rental;
           })
         );
-        
         setActiveRentals(rentalsList);
       } else {
         console.warn('Active rentals endpoint failed:', rentalsRes.reason);
         setActiveRentals([]);
       }
+      
     } catch (error) {
-      console.error(' Error loading dashboard data:', error);
+      console.error('Error loading chart data:', error);
     } finally {
+      setChartLoading(false);
+    }
+  }, [getDateParams, ordersLimit]);
+
+  // 3. LOAD ALL DATA (Both KPIs and Charts)
+  const loadDashboardData = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      // Load both KPI and chart data in parallel
+      await Promise.all([
+        loadKpiData(),
+        loadChartData()
+      ]);
       setHasLoaded(true);
-      setLoading(false);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
       setRefreshing(false);
     }
+  }, [loadKpiData, loadChartData]);
+
+  // Initial load - separate KPI and chart loading
+  useEffect(() => {
+    // Role guard: redirect staff to staff dashboard
+    const checkRole = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        const user = raw ? JSON.parse(raw) : null;
+        const roleRaw = user?.role || user?.role_name || user?.user_type;
+        const role = typeof roleRaw === 'string' ? roleRaw.toLowerCase() : roleRaw;
+        if (!role || (role !== 'admin' && role !== 'owner' && role !== 'manager')) {
+          navigate('/staff');
+          return false;
+        }
+        return true;
+      } catch {
+        // Ignore error and proceed
+        return true;
+      }
+    };
+    
+    const initialLoad = async () => {
+      if (checkRole()) {
+        await Promise.all([
+          loadKpiData(),
+          loadChartData()
+        ]);
+        setHasLoaded(true);
+      }
+    };
+    
+    initialLoad();
+  }, [loadKpiData, loadChartData, navigate]);
+
+  // Reload when date filter changes - use separate effect with cleanup
+  useEffect(() => {
+    if (hasLoaded) {
+      console.log('📅 Date filter changed - loading data...');
+      // Use a flag to prevent double loading
+      let isMounted = true;
+      
+      const reloadData = async () => {
+        if (isMounted) {
+          await loadDashboardData();
+        }
+      };
+      
+      reloadData();
+      
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [dateFilter, startDate, endDate, hasLoaded, loadDashboardData]);
+
+  const handleDateFilterChange = (newFilter) => {
+    console.log('📅 Date filter changed to:', newFilter);
+    setDateFilter(newFilter);
+    setStartDate('');
+    setEndDate('');
   };
 
-  // Backend provides total revenue - no frontend calculation needed
+  const handleCustomRangeApply = (customStartDate, customEndDate) => {
+    console.log('📅 Custom date range applied:', { customStartDate, customEndDate });
+    setStartDate(customStartDate);
+    setEndDate(customEndDate);
+  };
+
+  const handleManualRefresh = async () => {
+    console.log('🔄 Manual refresh triggered');
+    await loadDashboardData();
+  };
+
+  // Calculate display value
   const totalRevenueDisplay = Number(stats.totalRevenue) || 0;
 
-  // Helpers for quick actions
+  // Quick actions handlers
   const openNewOrderModal = async () => {
     setShowNewOrder(true);
     if (products.length === 0) {
@@ -345,8 +342,8 @@ const AdminDashboard = () => {
       try {
         const list = await getProducts();
         setProducts(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.error('Failed to load products for order', e);
+      } catch (error) {
+        console.error('Failed to load products for order', error);
         toast.error('Failed to load products');
       } finally {
         setProductsLoading(false);
@@ -374,12 +371,10 @@ const AdminDashboard = () => {
       };
       const orderResult = await checkout(payload);
       
-      // Extract order details from actual response structure
       let orderNumber = null;
       let totalPrice = orderResult.totalAmount || 0;
       let itemsList = [];
       
-      // Check products array first
       if (orderResult.products && orderResult.products.length > 0) {
         const firstProduct = orderResult.products[0];
         orderNumber = firstProduct.order_number;
@@ -387,7 +382,6 @@ const AdminDashboard = () => {
         itemsList = orderResult.products.map(p => `${p.name || p.service_name} (x${p.quantity})`);
       }
       
-      // Check services array if not found in products
       if (!orderNumber && orderResult.services && orderResult.services.length > 0) {
         const firstService = orderResult.services[0];
         orderNumber = firstService.order_number;
@@ -399,21 +393,13 @@ const AdminDashboard = () => {
       }
       
       const itemsDisplay = itemsList.join(' + ') || 'Order';
-      console.log('✅ Order Created:', {
-        order_number: orderNumber,
-        totalAmount: totalPrice,
-        itemsCount: itemsList.length,
-        items: itemsDisplay,
-        payment_method: orderPayment
-      });
-      
       toast.success(`Order #${orderNumber} - ${itemsDisplay} - Tzs ${totalPrice.toLocaleString()}`);
       setShowNewOrder(false);
       setOrderProductId('');
       setOrderQty(1);
       await loadDashboardData();
-    } catch (e) {
-      console.error('Create order failed', e);
+    } catch (error) {
+      console.error('Create order failed', error);
       toast.error('Failed to create order');
     } finally {
       setActionBusy(false);
@@ -427,8 +413,8 @@ const AdminDashboard = () => {
       try {
         const list = await getProducts();
         setProducts(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.error('Failed to load products for stock', e);
+      } catch (error) {
+        console.error('Failed to load products for stock', error);
         toast.error('Failed to load products');
       } finally {
         setProductsLoading(false);
@@ -456,15 +442,16 @@ const AdminDashboard = () => {
       setStockProductId('');
       setStockAmount(1);
       await loadDashboardData();
-    } catch (e) {
-      console.error('Update stock failed', e);
+    } catch (error) {
+      console.error('Update stock failed', error);
       toast.error('Failed to update stock');
     } finally {
       setActionBusy(false);
     }
   };
 
-  if (loading && !hasLoaded) {
+  // Loading state - only show if both are loading
+  if ((kpiLoading && !hasLoaded) || (chartLoading && !hasLoaded)) {
     return (
       <div className="dashboard-container">
         <Sidebar />
@@ -496,25 +483,32 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* Scrollable Content */}
         <div className="dashboard-scroll-content">
-          <KpiGrid 
+          {/* KPI Grid - Now uses kpiLoading state */}
+         <KpiGrid 
             stats={stats} 
             totalRevenueDisplay={totalRevenueDisplay} 
             rentalIncome={rentalIncome}
             dateRange={dateFilter}
-          />
+            onDateFilterChange={handleDateFilterChange}
+            startDate={startDate}
+            endDate={endDate}
+            onCustomRangeApply={handleCustomRangeApply}
+            loading={kpiLoading}
+           />
 
-          {/* Charts Section */}
+          {/* Charts Section - Now uses chartLoading state */}
           <div className="charts-grid">
             <RevenueChart 
               revenueData={revenueData} 
               dateFilter={dateFilter}
+              loading={chartLoading}
             />
 
             <TopSellingList 
               topSelling={topSelling} 
               dateFilter={dateFilter}
+              loading={chartLoading}
             />
           </div>
 
@@ -525,12 +519,11 @@ const AdminDashboard = () => {
               ordersLimit={ordersLimit}
               onLimitChange={setOrdersLimit}
               activeRentals={activeRentals}
+              loading={chartLoading}
             />
 
-            {/* Quick Actions & System Status */}
             <div className="side-panels">
               <QuickActions onNewOrder={openNewOrderModal} onAddStock={openAddStockModal} />
-              
               <SystemStatusCard />
             </div>
           </div>

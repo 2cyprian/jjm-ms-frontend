@@ -53,8 +53,16 @@
 /* KPI GRID */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(1fr);
   gap: 16px;
+}
+.kpi-card-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.kpi-card-grid > *{
+  flex: 1;
 }
 
 .kpi-card {
