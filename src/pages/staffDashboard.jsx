@@ -1,5 +1,24 @@
-
 import React, { useState, useEffect, useRef } from 'react';
+import { 
+  FiSearch, 
+  FiShoppingCart, 
+  FiPackage, 
+  FiTool, 
+  FiPlus,
+  FiMinus,
+  FiTrash2,
+  FiCheckCircle,
+  FiDollarSign,
+  FiBox,
+  FiRefreshCw,
+  FiGrid,
+  FiTag,
+  FiUser,
+  FiMail,
+  FiPhone,
+  FiClock,
+  FiSave
+} from 'react-icons/fi';
 import Sidebar from '../components/Sidebar';
 import { getProducts, getServices, checkout, scanProduct } from '../utils/api';
 import { useToast } from '../utils/toast';
@@ -12,37 +31,49 @@ const StaffDashboard = () => {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [itemType, setItemType] = useState('products'); // 'products' or 'services'
+  const [itemType, setItemType] = useState('products');
   const scanInputRef = useRef(null);
   const toast = useToast();
 
-  // Initialize daily sales
-  useEffect(() => {
+  // Format currency with commas
+  const formatCurrency = (amount) => {
+    return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  const getDailySalesSnapshot = () => {
     const today = new Date().toDateString();
     const storedData = localStorage.getItem('dailySalesData');
+
     if (storedData) {
-      const { date, total } = JSON.parse(storedData);
-      if (date === today) {
-        setDailySales(total);
-      } else {
-        setDailySales(0);
-        localStorage.setItem('dailySalesData', JSON.stringify({ date: today, total: 0 }));
-      }
-    } else {
-      localStorage.setItem('dailySalesData', JSON.stringify({ date: today, total: 0 }));
-      setDailySales(0);
+      try {
+        const parsed = JSON.parse(storedData);
+        if (parsed?.date === today) {
+          return parsed;
+        }
+      } catch (_) {}
     }
+
+    const resetSnapshot = { date: today, total: 0 };
+    localStorage.setItem('dailySalesData', JSON.stringify(resetSnapshot));
+    return resetSnapshot;
+  };
+
+  const persistDailySales = (total) => {
+    const today = new Date().toDateString();
+    const snapshot = { date: today, total };
+    localStorage.setItem('dailySalesData', JSON.stringify(snapshot));
+    setDailySales(total);
+  };
+
+  useEffect(() => {
+    const snapshot = getDailySalesSnapshot();
+    setDailySales(snapshot.total);
   }, []);
 
-  // Load products and services - only once on component mount
   useEffect(() => {
     const loadData = async () => {
-      // Load products
       try {
         const productsData = await getProducts();
         setProducts(Array.isArray(productsData) ? productsData : []);
@@ -51,7 +82,6 @@ const StaffDashboard = () => {
         setProducts([]);
       }
       
-      // Load services
       try {
         const servicesData = await getServices();
         console.log('Loaded services in staff dashboard:', servicesData);
@@ -62,12 +92,11 @@ const StaffDashboard = () => {
       }
     };
     loadData();
-  }, []); // Empty dependency - runs only once on mount
+  }, []);
 
-  // Helper to get price from product or service
   const getPrice = (item) => {
-    if (item.price) return item.price; // products
-    if (item.pricing_config?.base_price) return item.pricing_config.base_price; // services
+    if (item.price) return item.price;
+    if (item.pricing_config?.base_price) return item.pricing_config.base_price;
     return 0;
   };
 
@@ -110,20 +139,20 @@ const StaffDashboard = () => {
     }
   };
 
-  // const handleScan = async (e) => {
-  //   e.preventDefault();
-  //   if (!barcodeInput.trim()) return;
+  const handleScan = async (e) => {
+    e.preventDefault();
+    if (!barcodeInput.trim()) return;
 
-  //   try {
-  //     const data = await scanProduct(barcodeInput);
-  //     addToCart(data);
-  //     setBarcodeInput('');
-  //     if (scanInputRef.current) scanInputRef.current.focus();
-  //   } catch (err) {
-  //     toast.error('Product not found!');
-  //     setBarcodeInput('');
-  //   }
-  // };
+    try {
+      const data = await scanProduct(barcodeInput);
+      addToCart(data);
+      setBarcodeInput('');
+      if (scanInputRef.current) scanInputRef.current.focus();
+    } catch (err) {
+      toast.error('Product not found!');
+      setBarcodeInput('');
+    }
+  };
 
   const handleCheckout = async () => {
     if (cart.length === 0) {
@@ -133,9 +162,8 @@ const StaffDashboard = () => {
 
     setLoading(true);
     try {
-      // Build items array with both products and services
       const items = cart.map(i => ({
-        type: i.type,  // 'PRODUCT' or 'SERVICE'
+        type: i.type,
         id: String(i.id),
         quantity: i.qty,
         price: i.price,
@@ -154,24 +182,12 @@ const StaffDashboard = () => {
       
       toast.success('Order created successfully!');
       
-      // Update daily sales
       const totalAmount = calculateTotal();
-      const today = new Date().toDateString();
-      const storedData = localStorage.getItem('dailySalesData');
-      let newTotal = totalAmount;
-      if (storedData) {
-        const { date, total } = JSON.parse(storedData);
-        if (date === today) {
-          newTotal = total + totalAmount;
-        }
-      }
-      setDailySales(newTotal);
-      localStorage.setItem('dailySalesData', JSON.stringify({ date: today, total: newTotal }));
+      const snapshot = getDailySalesSnapshot();
+      const newTotal = snapshot.total + totalAmount;
+      persistDailySales(newTotal);
 
       setCart([]);
-      setCustomerName('');
-      setCustomerPhone('');
-      setCustomerEmail('');
       if (scanInputRef.current) scanInputRef.current.focus();
     } catch (err) {
       const msg = err?.response?.data?.detail || err?.message || 'Checkout Failed';
@@ -182,7 +198,6 @@ const StaffDashboard = () => {
     }
   };
 
-  // Get unique categories from current items
   const getCategories = () => {
     const cats = new Set(currentItems.map(item => item.category || 'Other').filter(Boolean));
     return ['All', ...Array.from(cats)];
@@ -201,35 +216,45 @@ const StaffDashboard = () => {
             <h2 className="pos-header-title">New Order</h2>
             <div className="pos-header-status">
               <span className="pos-header-status-dot"></span>
-              <span className="pos-header-status-text">Draft Auto-saved</span>
+              <span className="pos-header-status-text">
+                {cart.length > 0 ? `${cart.length} items in cart` : 'Ready to start'}
+              </span>
             </div>
           </div>
-          <div className="pos-header-search">
-            <span className="pos-header-search-icon">🔍</span>
-            <input placeholder='Search orders, invoices, or clients...' type='text' />
-          </div>
         
+          <div className="pos-header-actions">
+            <div className="pos-header-sales">
+              <span>Tzs {formatCurrency(dailySales)}</span>
+            </div>
+            <button className="pos-header-btn">
+            </button>
+            <div className="pos-header-avatar">
+              <img src="https://ui-avatars.com/api/?name=Staff&background=4f46e5&color=fff" alt="Staff" />
+            </div>
+          </div>
         </header>
 
         {/* Content Grid */}
         <div className="pos-content-grid">
-          {/* Left: Services/Products (60%) */}
+          {/* Left: Services/Products */}
           <section className="pos-left-section">
             {/* Type Toggle */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
               <button
                 onClick={() => { setItemType('products'); setFilterCategory('all'); }}
                 className={`pos-filter-btn ${itemType === 'products' ? 'active' : ''}`}
-                style={{ marginBottom: 0 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                 Inventory ({products.length})
+                <FiPackage size={16} />
+                Products ({products.length})
               </button>
               <button
                 onClick={() => { setItemType('services'); setFilterCategory('all'); }}
                 className={`pos-filter-btn ${itemType === 'services' ? 'active' : ''}`}
-                style={{ marginBottom: 0 }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
               >
-                 Services ({services.length})
+                <FiTool size={16} />
+                Services ({services.length})
               </button>
             </div>
 
@@ -247,76 +272,128 @@ const StaffDashboard = () => {
                 ))}
               </div>
               <div className="pos-search-field">
-                <span className="pos-search-icon">⚙️</span>
+                <FiSearch className="pos-search-icon" />
                 <input
-                  placeholder={itemType === 'products' ? 'Search inventory...' : 'Search services...'}
+                  placeholder={itemType === 'products' ? 'Search products...' : 'Search services...'}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Service Grid */}
+            {/* Items Grid */}
             <div className="pos-grid">
-              {filteredItems.map(item => (
-                <div
-                  key={item.id}
-                  onClick={() => addToCart(item)}
-                  className="pos-card"
-                >
-                  <div className="pos-card-header">
-                    <div className="pos-card-icon">{itemType === 'products' ? '📦' : '🔧'}</div>
-                    <span className="pos-card-badge">
-                      {item.category || (itemType === 'products' ? 'Product' : 'Service')}
-                    </span>
-                  </div>
-                  <h3 className="pos-card-title">{item.name}</h3>
-                  <p className="pos-card-description">{item.description || 'Premium quality item'}</p>
-                  <div className="pos-card-footer">
-                    <div>
-                      <p className="pos-card-price-label">Price</p>
-                      <p className="pos-card-price">Tzs{getPrice(item).toFixed(2)}</p>
-                    </div>
-                    <span className="pos-card-unit">Per Unit</span>
-                  </div>
+              {filteredItems.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <FiBox size={48} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                  <p>No {itemType} found</p>
                 </div>
-              ))}
+              ) : (
+                filteredItems.map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => addToCart(item)}
+                    className="pos-card"
+                  >
+                    <div className="pos-card-header">
+                      <div className="pos-card-icon">
+                        {itemType === 'products' ? <FiPackage size={20} /> : <FiTool size={20} />}
+                      </div>
+                      <span className="pos-card-badge">
+                        {item.category || (itemType === 'products' ? 'Product' : 'Service')}
+                      </span>
+                    </div>
+                    <h3 className="pos-card-title">{item.name}</h3>
+                    <p className="pos-card-description">{item.description || 'Premium quality item'}</p>
+                    <div className="pos-card-footer">
+                      <div>
+                        <p className="pos-card-price-label">Price</p>
+                        <p className="pos-card-price">Tzs {formatCurrency(getPrice(item))}</p>
+                      </div>
+                      <span className="pos-card-unit">Per Unit</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
-          {/* Right: Cart (40%) */}
+          {/* Right: Cart */}
           <aside className="pos-right-section">
             <div className="pos-right-inner">
-              {/* Customer Details */}
-             
-
               {/* Cart Items */}
               <div className="pos-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="pos-section-header" style={{ marginBottom: 0 }}>
-                    <span className="pos-section-icon">🛒</span>
-                    <h4 className="pos-section-title">Selected Items</h4>
-                  </div>
+                <div className="pos-section-header">
+                  <FiShoppingCart className="pos-section-icon" />
+                  <h4 className="pos-section-title">Selected Items</h4>
                   <span className="pos-section-badge">{cart.length} Items</span>
                 </div>
                 <div className="pos-cart-items">
-                  {cart.map(item => (
-                    <div key={item.id} className="pos-cart-item">
-                      <div className="pos-cart-item-info">
-                        <h5 className="pos-cart-item-name">{item.name}</h5>
-                        <div className="pos-cart-item-details">
-                          <span>Qty:</span>
-                          <input type='number' min='1' value={item.qty} onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))} className="pos-cart-item-qty-input" />
-                          <span>•</span>
-                          <span>Tzs{item.price?.toFixed(2)} ea</span>
+                  {cart.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
+                      <FiShoppingCart size={48} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                      <p>Your cart is empty</p>
+                      <span style={{ fontSize: '0.85rem' }}>Add items from the left panel</span>
+                    </div>
+                  ) : (
+                    cart.map(item => (
+                      <div key={item.id} className="pos-cart-item">
+                        <div className="pos-cart-item-info">
+                          <h5 className="pos-cart-item-name">{item.name}</h5>
+                          <div className="pos-cart-item-details">
+                            <span>Qty:</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <button 
+                                onClick={() => updateQuantity(item.id, item.qty - 1)}
+                                style={{ 
+                                  width: '24px', height: '24px', 
+                                  border: '1px solid var(--border-regular)', 
+                                  borderRadius: '4px',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <FiMinus size={12} />
+                              </button>
+                              <input 
+                                type='number' 
+                                min='1' 
+                                value={item.qty} 
+                                onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 1)} 
+                                className="pos-cart-item-qty-input" 
+                              />
+                              <button 
+                                onClick={() => updateQuantity(item.id, item.qty + 1)}
+                                style={{ 
+                                  width: '24px', height: '24px', 
+                                  border: '1px solid var(--border-regular)', 
+                                  borderRadius: '4px',
+                                  background: 'transparent',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}
+                              >
+                                <FiPlus size={12} />
+                              </button>
+                            </div>
+                            <span>•</span>
+                            <span>Tzs {formatCurrency(item.price)} ea</span>
+                          </div>
+                        </div>
+                        <div className="pos-cart-item-actions">
+                          <p className="pos-cart-item-total">Tzs {formatCurrency(item.price * item.qty)}</p>
+                          <button onClick={() => removeFromCart(item.id)} className="pos-cart-item-remove">
+                            <FiTrash2 size={14} />
+                          </button>
                         </div>
                       </div>
-                      <div className="pos-cart-item-actions">
-                        <p className="pos-cart-item-total">Tzs{(item.price * item.qty).toFixed(2)}</p>
-                        <button onClick={() => removeFromCart(item.id)} className="pos-cart-item-remove">Remove</button>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -325,18 +402,36 @@ const StaffDashboard = () => {
             <div className="pos-summary">
               <div className="pos-summary-row">
                 <span>Subtotal</span>
-                <span className="pos-summary-row-value">Tzs{calculateTotal().toFixed(2)}</span>
+                <span className="pos-summary-row-value">Tzs {formatCurrency(calculateTotal())}</span>
               </div>
               <div className="pos-summary-total">
                 <span className="pos-summary-total-label">Total Amount</span>
-                <span className="pos-summary-total-amount">Tzs{calculateTotal().toFixed(2)}</span>
+                <span className="pos-summary-total-amount">Tzs {formatCurrency(calculateTotal())}</span>
               </div>
               <div className="pos-checkout-actions">
-                <button disabled={loading} className="pos-btn pos-btn-draft">
-                  <span>💾</span> Save as Draft
+                <button 
+                  disabled={loading} 
+                  className="pos-btn pos-btn-draft"
+                >
+                  <FiSave size={16} />
+                  Save as Draft
                 </button>
-                <button onClick={handleCheckout} disabled={loading || cart.length === 0} className="pos-btn pos-btn-checkout">
-                  <span>✓</span> {loading ? 'Processing...' : 'Create Order'}
+                <button 
+                  onClick={handleCheckout} 
+                  disabled={loading || cart.length === 0} 
+                  className="pos-btn pos-btn-checkout"
+                >
+                  {loading ? (
+                    <>
+                      <FiRefreshCw className="spin" size={16} />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheckCircle size={16} />
+                      Create Order
+                    </>
+                  )}
                 </button>
               </div>
             </div>

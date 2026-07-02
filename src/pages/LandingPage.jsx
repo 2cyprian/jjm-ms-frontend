@@ -1,6 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../css/components/landing.css';
+import { VscGraph } from "react-icons/vsc";
+import { MdOutlineInventory } from "react-icons/md";
+import { FaUsers } from "react-icons/fa";
+import { IoIosFlash } from "react-icons/io";
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -24,36 +28,30 @@ const LandingPage = () => {
             >
               Get Started
             </button>
-            <button 
-              className="btn-secondary-large"
-              onClick={() => navigate('/customer')}
-            >
-              Upload Files
-            </button>
           </div>
         </div>
 
         <div className="landing-features">
           <div className="feature-card">
-            <div className="feature-icon">📊</div>
+            <div className="feature-icon"><VscGraph /></div>
             <h3>Dashboard Analytics</h3>
             <p>Track revenue, jobs, and performance metrics in real-time</p>
           </div>
           
           <div className="feature-card">
-            <div className="feature-icon">📦</div>
+            <div className="feature-icon"><MdOutlineInventory /></div>
             <h3>Inventory Control</h3>
             <p>Manage stock levels with automated low-stock alerts</p>
           </div>
           
           <div className="feature-card">
-            <div className="feature-icon">👥</div>
+            <div className="feature-icon"><FaUsers /></div>
             <h3>Team Management</h3>
             <p>Organize branches and staff with role-based access</p>
           </div>
           
           <div className="feature-card">
-            <div className="feature-icon">⚡</div>
+            <div className="feature-icon"><IoIosFlash /></div>
             <h3>Fast Processing</h3>
             <p>Quick job uploads and instant queue management</p>
           </div>

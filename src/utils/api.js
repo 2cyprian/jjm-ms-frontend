@@ -752,7 +752,23 @@ export const updateStaff = async (id, staff) => {
 };
 
 export const deleteStaff = async (id) => {
-  const response = await api.delete(`/staff/${id}/`);
+  // If id is an object, extract the actual ID
+  let staffId = id;
+  if (typeof id === 'object') {
+    staffId = id.id || id.staff_id || id._id || id.uuid;
+    console.log('📦 Extracted ID from object:', staffId);
+  }
+  
+  // Validate we have a valid ID
+  if (!staffId) {
+    throw new Error('Invalid staff ID: ' + JSON.stringify(id));
+  }
+  
+  // Convert to string to ensure proper URL encoding
+  const finalId = String(staffId);
+  console.log('Deleting staff with ID:', finalId);
+  
+  const response = await api.delete(`/staff/${finalId}/`);
   return response.data;
 };
 
@@ -1099,7 +1115,23 @@ export const updateExpense = async (expenseId, expenseData) => {
 };
 
 export const deleteExpense = async (expenseId) => {
-  const response = await api.delete(`/expenses/${expenseId}`);
+  if (!expenseId) {
+    throw new Error('Expense ID is required');
+  }
+  
+  // Handle if expenseId is an object
+  let id = expenseId;
+  if (typeof expenseId === 'object') {
+    id = expenseId.id || expenseId.expense_id || expenseId._id;
+  }
+  
+  if (!id) {
+    throw new Error('Invalid expense ID format');
+  }
+  
+  console.log(`📡 DELETE /expenses/${id}/`);
+  
+  const response = await api.delete(`/expenses/${id}/`);
   return response.data;
 };
 
