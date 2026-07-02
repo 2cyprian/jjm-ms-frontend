@@ -1,4 +1,5 @@
 import React from 'react';
+import { FiEdit2, FiTrash2 } from 'react-icons/fi';
 
 const ServiceTable = ({ services, onEdit, onDelete }) => {
   if (services.length === 0) {
@@ -69,14 +70,14 @@ const ServiceTable = ({ services, onEdit, onDelete }) => {
                   onClick={() => onEdit(service)}
                   title="Edit"
                 >
-                  <span className="material-symbols-outlined">edit</span>
+                  <span className="material-symbols-outlined"><FiEdit2 /></span>
                 </button>
                 <button
                   className="btn-icon btn-danger"
                   onClick={() => onDelete(service.id)}
                   title="Delete"
                 >
-                  <span className="material-symbols-outlined">delete</span>
+                  <span className="material-symbols-outlined"><FiTrash2 /></span>
                 </button>
               </td>
             </tr>

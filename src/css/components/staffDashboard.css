@@ -337,7 +337,127 @@
   gap: 8px;
   margin-bottom: 16px;
 }
+/* Sales badge in header */
+.pos-header-sales {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 999px;
+  color: #065f46;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 
+/* Spin animation */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Cart empty state */
+.pos-cart-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--text-muted);
+}
+
+.pos-cart-empty svg {
+  display: block;
+  margin: 0 auto 12px;
+  opacity: 0.3;
+}
+
+.pos-cart-empty p {
+  margin: 0;
+}
+
+.pos-cart-empty span {
+  font-size: 0.85rem;
+}
+
+/* Quantity controls in cart */
+.pos-qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qty-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-regular);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.qty-btn:hover {
+  background: var(--input-bg);
+  border-color: var(--primary);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .pos-content-grid {
+    flex-direction: column;
+  }
+
+  .pos-left-section,
+  .pos-right-section {
+    width: 100% !important;
+  }
+
+  .pos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .pos-header {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  
+  .pos-header-search {
+    order: 3;
+    max-width: 100%;
+    margin: 0;
+    width: 100%;
+  }
+  
+  .pos-header-actions {
+    gap: 12px;
+  }
+  
+  .pos-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+  
+  .pos-right-section {
+    padding: 16px;
+  }
+  
+  .pos-checkout-actions {
+    grid-template-columns: 1fr;
+  }
+}
 .pos-section-icon {
   font-size: 20px;
 }
