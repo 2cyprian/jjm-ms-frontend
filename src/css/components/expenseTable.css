@@ -1,0 +1,272 @@
+/* Expense Table Styles */
+.expense-table-wrapper {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.expense-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafbfc;
+}
+
+.table-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.table-stats {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.stat-badge {
+  font-size: 0.75rem;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.expense-table-container {
+  overflow-x: auto;
+  padding: 0.25rem;
+}
+
+.expense-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+}
+
+.expense-table thead {
+  background: #f9fafb;
+}
+
+.expense-table thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #6b7280;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.th-content {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.actions-header {
+  text-align: center;
+  width: 60px;
+}
+
+.expense-row {
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.expense-row:hover {
+  background: #f8fafc;
+  transform: scale(1.001);
+}
+
+.expense-row td {
+  padding: 0.875rem 1rem;
+  vertical-align: middle;
+}
+
+/* Cell Styles */
+.date-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.date-cell span {
+  font-weight: 500;
+}
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}
+
+.description-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.description-cell span:first-child {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.notes-preview {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.amount-cell {
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 0.9rem;
+}
+
+.payment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.receipt-cell {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #4b5563;
+  background: #f9fafb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.btn-icon:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-btn {
+  color: #3b82f6;
+}
+
+.edit-btn:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.delete-btn {
+  color: #ef4444;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+/* Empty State */
+.expense-table-empty {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 3rem;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .expense-table-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  
+  .expense-table thead th,
+  .expense-row td {
+    padding: 0.625rem 0.75rem;
+  }
+  
+  .expense-table thead th {
+    font-size: 0.65rem;
+  }
+  
+  .date-cell,
+  .description-cell,
+  .amount-cell {
+    font-size: 0.8rem;
+  }
+  
+  .category-badge,
+  .payment-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .expense-table thead th {
+    font-size: 0.55rem;
+    padding: 0.5rem;
+  }
+  
+  .expense-row td {
+    padding: 0.5rem;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .btn-icon {
+    padding: 0.25rem;
+  }
+}
