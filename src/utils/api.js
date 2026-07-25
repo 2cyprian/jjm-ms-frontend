@@ -960,25 +960,22 @@ export const getAllVisitRequests = async (params = {}) => {
   } catch (err) {
     // If global endpoint fails, fetch from all listings
     if (err.response?.status === 404) {
-      try {
-        const listings = await getLandListings();
-        const allRequests = [];
-        
-        for (const listing of listings) {
-          try {
-            const requests = await getVisitRequests(listing.id);
-            if (requests && requests.length > 0) {
-              allRequests.push(...requests);
-            }
-          } catch (listingErr) {
-            // Skip this listing if error
+      const listings = await getLandListings();
+      const allRequests = [];
+      
+      for (const listing of listings) {
+        try {
+          const requests = await getVisitRequests(listing.id);
+          if (requests && requests.length > 0) {
+            allRequests.push(...requests);
           }
+        } catch {
+          // Skip this listing if error - continue to next
+          continue;
         }
-        
-        return allRequests;
-      } catch (fallbackErr) {
-        throw fallbackErr;
       }
+      
+      return allRequests;
     }
     throw err;
   }

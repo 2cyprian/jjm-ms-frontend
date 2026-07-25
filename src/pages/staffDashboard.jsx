@@ -52,7 +52,9 @@ const StaffDashboard = () => {
         if (parsed?.date === today) {
           return parsed;
         }
-      } catch (_) {}
+      } catch (err) {
+        console.error('Error parsing daily sales data from localStorage:', err);
+      }
     }
 
     const resetSnapshot = { date: today, total: 0 };
